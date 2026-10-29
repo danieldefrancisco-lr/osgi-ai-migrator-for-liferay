@@ -1,0 +1,10 @@
+target/
+bin/
+.settings/
+.classpath
+.project
+*.log
+
+# Local tooling to sync from the development folder (not part of the project)
+sync-from-v2.ps1
+.sync-baseline/

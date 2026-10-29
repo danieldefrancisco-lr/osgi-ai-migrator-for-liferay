@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <!-- Commands -->
+   <extension point="org.eclipse.ui.commands">
+      <category
+            id="io.github.danieldefrancisco_lr.migrator.category"
+            name="OSGi AI Migrator for Liferay">
+      </category>
+      <command
+            categoryId="io.github.danieldefrancisco_lr.migrator.category"
+            id="io.github.danieldefrancisco_lr.migrator.commands.migrateModule"
+            name="Migrate OSGi Module to Client Extensions...">
+      </command>
+   </extension>
+
+   <!-- Handlers -->
+   <extension point="org.eclipse.ui.handlers">
+      <handler
+            class="io.github.danieldefrancisco_lr.migrator.handlers.MigrateModuleHandler"
+            commandId="io.github.danieldefrancisco_lr.migrator.commands.migrateModule">
+      </handler>
+   </extension>
+
+   <!-- Context Menu Contribution -->
+   <extension point="org.eclipse.ui.menus">
+      <menuContribution
+            allPopups="true"
+            locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+         <menu
+               id="io.github.danieldefrancisco_lr.migrator.menu"
+               label="OSGi AI Migrator">
+            <command
+                  commandId="io.github.danieldefrancisco_lr.migrator.commands.migrateModule"
+                  label="Migrate OSGi Module to Client Extensions..."
+                  style="push">
+               <visibleWhen checkEnabled="false">
+                  <with variable="activeMenuSelection">
+                     <iterate ifEmpty="false">
+                        <adapt type="org.eclipse.core.resources.IResource">
+                        </adapt>
+                     </iterate>
+                  </with>
+               </visibleWhen>
+            </command>
+         </menu>
+      </menuContribution>
+   </extension>
+
+   <!-- Preference Pages -->
+   <extension point="org.eclipse.ui.preferencePages">
+      <page
+            class="io.github.danieldefrancisco_lr.migrator.preferences.GeminiPreferencePage"
+            id="io.github.danieldefrancisco_lr.migrator.preferences.GeminiPreferencePage"
+            name="OSGi AI Migrator for Liferay">
+      </page>
+   </extension>
+
+</plugin>

@@ -1,0 +1,242 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LegacyOSGiAnalysis",
+  "description": "Standard output format produced by Donatello (The Analyzer) from legacy Service Builder & Portlet modules.",
+  "type": "object",
+  "required": ["moduleName", "entities"],
+  "properties": {
+    "moduleName": {
+      "type": "string",
+      "description": "The OSGi bundle symbolic name or module folder name."
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "tableName", "fields"],
+        "properties": {
+          "name": { "type": "string" },
+          "tableName": { "type": "string" },
+          "primaryKey": { "type": "string" },
+          "uuid": { "type": "boolean", "default": false },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "isPrimary": { "type": "boolean", "default": false },
+                "isSystemField": { "type": "boolean", "default": false },
+                "candidateForeignKey": { "type": "string" }
+              }
+            }
+          },
+          "finders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "columns"],
+              "properties": {
+                "name": { "type": "string" },
+                "columns": { "type": "array", "items": { "type": "string" } },
+                "returnCollection": { "type": "boolean", "default": true }
+              }
+            }
+          },
+          "validations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "rule": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "serviceWrappers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["wrappedService", "overriddenMethods"],
+        "properties": {
+          "wrappedService": { "type": "string" },
+          "overriddenMethods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "methodName": { "type": "string" },
+                "intent": { "type": "string", "enum": ["validation", "payloadModification", "sideEffect", "other"] },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "modelListeners": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["modelClass", "events", "actionClassification"],
+        "properties": {
+          "modelClass": { "type": "string" },
+          "events": { "type": "array", "items": { "type": "string" } },
+          "actionClassification": {
+            "type": "string",
+            "enum": [
+              "UPDATE_ENTRY",
+              "ADD_ENTRY",
+              "SEND_NOTIFICATION",
+              "WEBHOOK",
+              "AUDIT_OR_LOG",
+              "CUSTOM_LOGIC_CET"
+            ]
+          },
+          "targetDetails": {
+            "type": "object",
+            "description": "Specific details such as target entity, modified fields, notification recipient, or external URL."
+          },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "messageListeners": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["destinationName"],
+        "properties": {
+          "destinationName": { "type": "string" },
+          "isScheduledJob": { "type": "boolean", "default": false },
+          "cronExpression": { "type": "string" },
+          "taskTypeKey": { "type": "string" },
+          "taskDescription": { "type": "string" }
+        }
+      }
+    },
+    "configurations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["configurationPid"],
+        "properties": {
+          "configurationPid": { "type": "string" },
+          "scope": { "type": "string", "enum": ["system", "company", "group", "portletInstance"] },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "defaultValue": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "portletName": { "type": "string" },
+        "forms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "action": { "type": "string" },
+              "fields": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string" },
+              "entity": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "lookAndFeel": {
+      "type": "object",
+      "properties": {
+        "traditionalTheme": {
+          "type": "object",
+          "properties": {
+            "themeId": { "type": "string" },
+            "themeName": { "type": "string" },
+            "hasPortalNormal": { "type": "boolean" },
+            "hasHeaderFtl": { "type": "boolean" },
+            "hasFooterFtl": { "type": "boolean" },
+            "hasNavigationFtl": { "type": "boolean" },
+            "colorSchemes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "cssClass": { "type": "string" }
+                }
+              }
+            },
+            "brandVariables": {
+              "type": "object",
+              "description": "Extracted SASS variables (colors, fonts, sizes)"
+            },
+            "hasFavicon": { "type": "boolean" },
+            "hasSpritemap": { "type": "boolean" }
+          }
+        },
+        "widgetTemplates": {
+          "type": "array",
+          "description": "Legacy Application Display Templates (ADTs)",
+          "items": {
+            "type": "object",
+            "required": ["templateKey", "targetPortlet"],
+            "properties": {
+              "templateKey": { "type": "string" },
+              "name": { "type": "string" },
+              "targetPortlet": { "type": "string" },
+              "layoutType": { "type": "string", "enum": ["cardGrid", "list", "carousel", "accordion", "tree", "other"] },
+              "extractedFields": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "globalStyles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "globalScripts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "editorConfigs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "editorConfigKey": { "type": "string" },
+              "editorName": { "type": "string" }
+            }
+          }
+        },
+        "iframeUrl": { "type": "string" }
+      }
+    }
+  }
+}

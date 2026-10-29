@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+      id="io.github.danieldefrancisco_lr.migrator.feature"
+      label="OSGi AI Migrator for Liferay"
+      version="2.0.0.qualifier"
+      provider-name="Daniel de Francisco">
+
+   <description url="https://github.com/danieldefrancisco-lr/liferay-osgi-ai-migrator">
+      AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects
+      and Client Extensions, powered by Google Gemini (AI Studio or Vertex AI).
+      Adds an "OSGi AI Migrator" context menu and a 4-agent migration wizard
+      (Donatello: analyze, Leonardo: architect, Michelangelo: generate, Raphael: verify).
+
+      Independent personal project. Not affiliated with, endorsed by, or supported by
+      Liferay, Inc. Liferay and Liferay DXP are trademarks of Liferay, Inc.
+   </description>
+
+   <copyright>
+      Copyright (c) 2026 Daniel de Francisco.
+   </copyright>
+
+   <!-- TODO: replace with the chosen open source license (e.g. EPL-2.0, Apache-2.0, MIT). -->
+   <license url="">
+      LICENSE PENDING. This build is for evaluation only and must not be redistributed
+      until a license has been chosen.
+   </license>
+
+   <plugin
+         id="io.github.danieldefrancisco_lr.migrator"
+         version="0.0.0"/>
+
+</feature>

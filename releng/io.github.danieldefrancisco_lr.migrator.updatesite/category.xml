@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature id="io.github.danieldefrancisco_lr.migrator.feature">
+      <category name="osgi.ai.migrator"/>
+   </feature>
+   <category-def name="osgi.ai.migrator" label="OSGi AI Migrator for Liferay">
+      <description>
+         AI-assisted tools to modernize legacy Liferay OSGi modules.
+      </description>
+   </category-def>
+</site>

@@ -1,0 +1,140 @@
+{
+  "configuration": {
+    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition",
+    "parameters": {
+      "createStrategy": "UPSERT",
+      "updateStrategy": "UPDATE"
+    }
+  },
+  "items": [
+    {
+      "accountEntryRestricted": false,
+      "active": true,
+      "defaultLanguageId": "en_US",
+      "enableCategorization": true,
+      "enableComments": true,
+      "enableIndexSearch": true,
+      "enableLocalization": false,
+      "enableObjectEntryDraft": false,
+      "enableObjectEntryHistory": false,
+      "externalReferenceCode": "OBJ_EMPLOYEE",
+      "label": {
+        "en_US": "Employee"
+      },
+      "name": "Employee",
+      "objectFolderExternalReferenceCode": "FOLDER_MIGRATED_OBJECTS",
+      "panelCategoryKey": "control_panel.object",
+      "pluralLabel": {
+        "en_US": "Employees"
+      },
+      "portlet": true,
+      "scope": "company",
+      "status": {
+        "code": 0,
+        "label": "approved"
+      },
+      "system": false,
+      "titleObjectFieldName": "fullName",
+      "objectFields": [
+        {
+          "DBType": "String",
+          "businessType": "Text",
+          "externalReferenceCode": "FIELD_EMPLOYEE_FULLNAME",
+          "indexed": true,
+          "indexedAsKeyword": false,
+          "label": { "en_US": "Full Name" },
+          "name": "fullName",
+          "required": true,
+          "system": false,
+          "type": "String",
+          "unique": false
+        },
+        {
+          "DBType": "String",
+          "businessType": "Text",
+          "externalReferenceCode": "FIELD_EMPLOYEE_EMAIL",
+          "indexed": true,
+          "indexedAsKeyword": true,
+          "label": { "en_US": "Email" },
+          "name": "email",
+          "required": true,
+          "system": false,
+          "type": "String",
+          "unique": true
+        },
+        {
+          "DBType": "String",
+          "businessType": "LongText",
+          "externalReferenceCode": "FIELD_EMPLOYEE_NOTES",
+          "indexed": false,
+          "indexedAsKeyword": false,
+          "label": { "en_US": "Notes" },
+          "name": "notes",
+          "required": false,
+          "system": false,
+          "type": "String",
+          "unique": false
+        },
+        {
+          "DBType": "Double",
+          "businessType": "Decimal",
+          "externalReferenceCode": "FIELD_EMPLOYEE_SALARY",
+          "indexed": true,
+          "indexedAsKeyword": false,
+          "label": { "en_US": "Salary" },
+          "name": "salary",
+          "required": false,
+          "system": false,
+          "type": "Double",
+          "unique": false
+        },
+        {
+          "DBType": "Date",
+          "businessType": "Date",
+          "externalReferenceCode": "FIELD_EMPLOYEE_HIREDATE",
+          "indexed": true,
+          "indexedAsKeyword": false,
+          "label": { "en_US": "Hire Date" },
+          "name": "hireDate",
+          "objectFieldSettings": [],
+          "required": false,
+          "system": false,
+          "type": "Date",
+          "unique": false
+        },
+        {
+          "DBType": "DateTime",
+          "businessType": "DateTime",
+          "externalReferenceCode": "FIELD_EMPLOYEE_LASTLOGIN",
+          "indexed": true,
+          "indexedAsKeyword": false,
+          "label": { "en_US": "Last Login" },
+          "name": "lastLogin",
+          "objectFieldSettings": [
+            {
+              "name": "timeStorage",
+              "value": "convertToUTC"
+            }
+          ],
+          "required": false,
+          "system": false,
+          "type": "DateTime",
+          "unique": false
+        },
+        {
+          "DBType": "Boolean",
+          "businessType": "Boolean",
+          "externalReferenceCode": "FIELD_EMPLOYEE_ACTIVE",
+          "indexed": true,
+          "indexedAsKeyword": false,
+          "label": { "en_US": "Active" },
+          "name": "active",
+          "required": false,
+          "system": false,
+          "type": "Boolean",
+          "unique": false
+        }
+      ]
+    }
+  ]
+}
