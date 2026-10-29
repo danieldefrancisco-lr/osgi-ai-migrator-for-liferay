@@ -31,10 +31,10 @@ https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
 
 ## Build
 
-Requires Maven 3.9+ and JDK 17+.
+Requires JDK 17+. Maven is downloaded by the wrapper (pinned to 3.9.11).
 
 ```
-mvn clean verify
+./mvnw clean verify      # Windows: mvnw.cmd clean verify
 ```
 
 The p2 update site is generated in

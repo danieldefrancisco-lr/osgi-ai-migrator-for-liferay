@@ -31,7 +31,8 @@ jobs:
       - name: Build with Tycho
         run: |
           set -o pipefail
-          mvn -B clean verify 2>&1 | tee build.log
+          ./mvnw -v
+          ./mvnw -B clean verify 2>&1 | tee build.log
 
       # Job logs need a signed-in user; annotations are visible to anyone
       - name: Report build errors as annotations
