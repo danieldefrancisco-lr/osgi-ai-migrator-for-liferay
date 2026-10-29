@@ -49,4 +49,6 @@ releng/io.github.danieldefrancisco_lr.migrator.updatesite  p2 update site (categ
 
 ## License
 
-To be defined.
+Copyright (c) 2026 Daniel de Francisco.
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
