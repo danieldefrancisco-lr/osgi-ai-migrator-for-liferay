@@ -1,0 +1,62 @@
+name: Build update site
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UPDATE_SITE: releng/io.github.danieldefrancisco_lr.migrator.updatesite/target/repository
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build with Tycho
+        run: mvn -B clean verify
+
+      - name: Add landing page
+        run: cp releng/io.github.danieldefrancisco_lr.migrator.updatesite/index.html "$UPDATE_SITE/"
+
+      - name: Upload update site (downloadable from the run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-site
+          path: ${{ env.UPDATE_SITE }}
+
+      - name: Upload update site for GitHub Pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !github.event.repository.private
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.UPDATE_SITE }}
+
+  # GitHub Pages needs a public repository on a free plan, so publishing is skipped while it is private
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !github.event.repository.private
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
