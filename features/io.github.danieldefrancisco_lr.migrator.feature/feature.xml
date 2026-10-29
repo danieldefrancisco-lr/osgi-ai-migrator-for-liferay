@@ -5,7 +5,7 @@
       version="2.0.0.qualifier"
       provider-name="Daniel de Francisco">
 
-   <description url="https://github.com/danieldefrancisco-lr/liferay-osgi-ai-migrator">
+   <description url="https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay">
       AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects
       and Client Extensions, powered by Google Gemini (AI Studio or Vertex AI).
       Adds an "OSGi AI Migrator" context menu and a 4-agent migration wizard

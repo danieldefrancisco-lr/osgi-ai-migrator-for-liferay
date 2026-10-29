@@ -23,7 +23,11 @@ into Liferay Objects and Client Extensions.
 
 ## Install
 
-*Help → Install New Software → Add…* and enter the update site URL (to be published).
+*Help → Install New Software → Add…* and enter the update site URL:
+
+```
+https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
+```
 
 ## Build
 
