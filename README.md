@@ -41,6 +41,16 @@ The p2 update site is generated in
 `releng/io.github.danieldefrancisco_lr.migrator.updatesite/target/repository/`
 (also zipped next to it).
 
+## Releasing
+
+Pushes to `main` and pull requests only build. The update site is published to GitHub Pages
+when a `v*` tag is pushed, and the tag must match the plugin and feature versions:
+
+1. Set the new version in `pom.xml` files, `MANIFEST.MF` and `feature.xml`, for example:
+   `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=2.1.0-SNAPSHOT`
+2. Commit and push to `main`, and check the build passes.
+3. Tag and push: `git tag v2.1.0 && git push origin v2.1.0`
+
 ## Project layout
 
 ```

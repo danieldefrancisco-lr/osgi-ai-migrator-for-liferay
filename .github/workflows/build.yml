@@ -1,8 +1,10 @@
 name: Build update site
 
+# main and pull requests only build; pushing a v* tag (e.g. v2.0.0) also publishes the update site
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -15,12 +17,26 @@ concurrency:
 
 env:
   UPDATE_SITE: releng/io.github.danieldefrancisco_lr.migrator.updatesite/target/repository
+  RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') && !github.event.repository.private }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      # Avoid publishing a tag that does not match the version being built
+      - name: Check tag matches plugin and feature versions
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          bundle=$(sed -n 's/^Bundle-Version: *\([0-9.]*\)\.qualifier.*/\1/p' bundles/io.github.danieldefrancisco_lr.migrator/META-INF/MANIFEST.MF)
+          feature=$(sed -n 's/^ *version="\([0-9.]*\)\.qualifier".*/\1/p' features/io.github.danieldefrancisco_lr.migrator.feature/feature.xml)
+          echo "tag=$tag bundle=$bundle feature=$feature"
+          if [ "$tag" != "$bundle" ] || [ "$tag" != "$feature" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Bundle-Version $bundle / feature version $feature"
+            exit 1
+          fi
 
       - uses: actions/setup-java@v5
         with:
@@ -49,15 +65,16 @@ jobs:
           path: ${{ env.UPDATE_SITE }}
 
       - name: Upload update site for GitHub Pages
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !github.event.repository.private
+        if: env.RELEASE == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ env.UPDATE_SITE }}
 
-  # GitHub Pages needs a public repository on a free plan, so publishing is skipped while it is private
+  # GitHub Pages needs a public repository on a free plan, so publishing is skipped while it is private.
+  # The github-pages environment must allow v* tags (Settings → Environments → github-pages).
   deploy:
     needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !github.event.repository.private
+    if: startsWith(github.ref, 'refs/tags/v') && !github.event.repository.private
     runs-on: ubuntu-latest
     permissions:
       pages: write
