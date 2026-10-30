@@ -23,7 +23,12 @@ into Liferay Objects and Client Extensions.
 
 ## Install
 
-*Help → Install New Software → Add…* and enter the update site URL:
+From the [Eclipse Marketplace](https://marketplace.eclipse.org/content/osgi-ai-migrator-liferay):
+drag this button into a running Eclipse workspace.
+
+<a href="https://marketplace.eclipse.org/marketplace-client-intro?mpc_install=7577081" title="Drag to your running Eclipse workspace to install OSGi AI Migrator for Liferay"><img src="https://marketplace.eclipse.org/modules/custom/eclipsefdn/eclipsefdn_marketplace/images/btn-install.svg" alt="Drag to your running Eclipse workspace to install OSGi AI Migrator for Liferay" /></a>
+
+Or use *Help → Install New Software → Add…* and enter the update site URL:
 
 ```
 https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
