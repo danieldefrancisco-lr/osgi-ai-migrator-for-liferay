@@ -20,6 +20,8 @@ public class MigrationReports {
     private static final String ERC = "[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+";
     private static final Pattern ERC_CONSTANT = Pattern.compile("(?:const|let|var)\\s+(\\w+)\\s*=\\s*['\"](" + ERC + ")['\"]");
     private static final Pattern ERC_LITERAL_CALL = Pattern.compile(API_CALLS + "\\(\\s*['\"](" + ERC + ")['\"]");
+    /** Object API sub-paths that Liferay does not have, e.g. `${OBJECT_PATH}/count`. */
+    private static final Pattern INVENTED_ENDPOINT = Pattern.compile("/(count|search|list|all)['\"`?]");
     private static final Pattern URL_WITHOUT_O_PREFIX = Pattern.compile("['\"`]/(?:headless-[\\w-]+|c)/");
 
     public static String buildDonatelloReport(ModuleAnalysisResult analysisResult) {
@@ -201,6 +203,11 @@ public class MigrationReports {
         while (literals.find()) {
             warnings.add(path + " passes externalReferenceCode '" + literals.group(1) +
                 "' as an API path; use the REST endpoint from the blueprint's API CONTRACT, e.g. '/o/c/<lowercase plural name>'.");
+        }
+        Matcher invented = INVENTED_ENDPOINT.matcher(content);
+        if (invented.find()) {
+            warnings.add(path + " calls a '/" + invented.group(1) + "' endpoint, which Liferay Objects do not have; " +
+                "list with GET [endpoint]?page=1&pageSize=N and read 'totalCount' for counts (countObjectEntries).");
         }
         if (URL_WITHOUT_O_PREFIX.matcher(content).find()) {
             warnings.add(path + " calls a Liferay API URL without the '/o/' prefix (e.g. '/headless-admin-list-type/...' instead of '/o/headless-admin-list-type/...').");

@@ -373,6 +373,18 @@ Liferay's portal theme **already loads Clay CSS & Bootstrap styles natively on t
 *REST Endpoint Naming Rule:* Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with **NO HYPHENS**! For example, entity `DevconRegistration` has endpoint `/o/c/devconregistrations` (NOT `/o/c/devcon-registrations`). Always compute the endpoint by lowercasing the plural entity name and stripping all hyphens and spaces!
 Take the endpoints from the blueprint's **API CONTRACT** and keep them in constants (`const OBJECT_PATH = '/o/c/devconregistrations';`). Never pass an object's externalReferenceCode (e.g. `DEVCON_REGISTRATION`) as a path. Other Liferay APIs keep their full `/o/...` URL, e.g. picklist entries at `/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries`.
 
+*Liferay Objects REST API — these are the ONLY endpoints that exist.* Never invent others (there is no `/count`, `/search`, `/list` or `/all`):
+
+| Purpose | Request | Notes |
+|---|---|---|
+| List / search | `GET /o/c/[plural]?page=1&pageSize=20` | Optional `filter=`, `search=`, `sort=`. Returns `{ items, page, pageSize, totalCount, lastPage }` |
+| Count | `GET /o/c/[plural]?page=1&pageSize=1` | Read `totalCount` from the response (use `countObjectEntries`) |
+| Get one | `GET /o/c/[plural]/{id}` | Also `GET /o/c/[plural]/by-external-reference-code/{erc}` |
+| Create | `POST /o/c/[plural]` | Returns the created entry (picklists come back as `{key, name}`) |
+| Update | `PUT` or `PATCH /o/c/[plural]/{id}` | |
+| Delete | `DELETE /o/c/[plural]/{id}` | `204 No Content` |
+| Picklist entries | `GET /o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/{erc}/list-type-entries` | `items` with `key` and `name` |
+
 ```javascript
 /* global Liferay */
 
@@ -424,6 +436,12 @@ export async function getObjectEntries(objectContextPath, filter = '', pageSize 
   const res = await fetchWithAuth(url);
   if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
   return res.json();
+}
+
+// There is no /count endpoint: the total comes in totalCount of any page
+export async function countObjectEntries(objectContextPath, filter = '') {
+  const data = await getObjectEntries(objectContextPath, filter, 1, 1);
+  return data.totalCount;
 }
 
 export async function getObjectEntry(objectContextPath, id) {

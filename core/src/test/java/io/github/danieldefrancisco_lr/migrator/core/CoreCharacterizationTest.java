@@ -65,6 +65,12 @@ public class CoreCharacterizationTest {
         run("library-web-erc-as-path", "gradle-workspace", "modules/library/library-web", null, true, "erc-as-path");
     }
 
+    /** The React code calls an endpoint Liferay Objects do not have (/count), which Raphael must flag. */
+    @Test
+    public void libraryWebInventedEndpoint() throws Exception {
+        run("library-web-invented-endpoint", "gradle-workspace", "modules/library/library-web", null, true, "invented-endpoint");
+    }
+
     @Test
     public void acmeTheme() throws Exception {
         run("acme-theme", "maven-workspace", "themes/acme-theme", null, false, "default");

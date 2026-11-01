@@ -1,0 +1,53 @@
+=== FILE: client-extensions/library-web-custom-element/client-extension.yaml ===
+assemble:
+    - from: build/static
+      into: static
+library-web-custom-element:
+    cssURLs:
+        - css/main.*.css
+    htmlElementName: library-web-custom-element
+    name: Library
+    type: customElement
+    urls:
+        - js/main.*.js
+=== END FILE ===
+
+=== FILE: client-extensions/library-web-custom-element/package.json ===
+{
+    "name": "library-web-custom-element",
+    "scripts": {"build": "react-scripts build", "start": "react-scripts start"}
+}
+=== END FILE ===
+
+=== FILE: src/App.js ===
+import { fetchWithAuth } from './services/liferayApi';
+
+const OBJECT_PATH = '/o/c/books';
+
+export default function App() {
+    const load = async () => {
+        const res = await fetchWithAuth(`${OBJECT_PATH}/count`);
+        return res.json();
+    };
+    return <div className="container" onClick={load}>Library</div>;
+}
+=== END FILE ===
+
+=== FILE: fragments/library-fragments/collection.json ===
+{"name": "Library Fragments"}
+=== END FILE ===
+
+=== FILE: fragments/library-fragments/book-card/fragment.json ===
+{"fragmentEntryKey": "book-card", "htmlPath": "index.html", "name": "Book Card", "type": "component"}
+=== END FILE ===
+
+=== FILE: fragments/library-fragments/book-card/index.html ===
+<div class="book-card">${title}</div>
+=== END FILE ===
+
+=== FILE: book-card-v2/fragment.json ===
+{"fragmentEntryKey": "book-card-v2", "name": "Book Card V2"}
+=== END FILE ===
+
+=== FILE: "styles/theme.css" ===
+.book-card { color: red; }

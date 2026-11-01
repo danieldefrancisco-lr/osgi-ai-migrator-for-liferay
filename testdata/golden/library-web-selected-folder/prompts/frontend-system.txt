@@ -376,6 +376,18 @@ Liferay's portal theme **already loads Clay CSS & Bootstrap styles natively on t
 *REST Endpoint Naming Rule:* Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with **NO HYPHENS**! For example, entity `DevconRegistration` has endpoint `/o/c/devconregistrations` (NOT `/o/c/devcon-registrations`). Always compute the endpoint by lowercasing the plural entity name and stripping all hyphens and spaces!
 Take the endpoints from the blueprint's **API CONTRACT** and keep them in constants (`const OBJECT_PATH = '/o/c/devconregistrations';`). Never pass an object's externalReferenceCode (e.g. `DEVCON_REGISTRATION`) as a path. Other Liferay APIs keep their full `/o/...` URL, e.g. picklist entries at `/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries`.
 
+*Liferay Objects REST API — these are the ONLY endpoints that exist.* Never invent others (there is no `/count`, `/search`, `/list` or `/all`):
+
+| Purpose | Request | Notes |
+|---|---|---|
+| List / search | `GET /o/c/[plural]?page=1&pageSize=20` | Optional `filter=`, `search=`, `sort=`. Returns `{ items, page, pageSize, totalCount, lastPage }` |
+| Count | `GET /o/c/[plural]?page=1&pageSize=1` | Read `totalCount` from the response (use `countObjectEntries`) |
+| Get one | `GET /o/c/[plural]/{id}` | Also `GET /o/c/[plural]/by-external-reference-code/{erc}` |
+| Create | `POST /o/c/[plural]` | Returns the created entry (picklists come back as `{key, name}`) |
+| Update | `PUT` or `PATCH /o/c/[plural]/{id}` | |
+| Delete | `DELETE /o/c/[plural]/{id}` | `204 No Content` |
+| Picklist entries | `GET /o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/{erc}/list-type-entries` | `items` with `key` and `name` |
+
 ```javascript
 /* global Liferay */
 
@@ -427,6 +439,12 @@ export async function getObjectEntries(objectContextPath, filter = '', pageSize 
   const res = await fetchWithAuth(url);
   if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
   return res.json();
+}
+
+// There is no /count endpoint: the total comes in totalCount of any page
+export async function countObjectEntries(objectContextPath, filter = '') {
+  const data = await getObjectEntries(objectContextPath, filter, 1, 1);
+  return data.totalCount;
 }
 
 export async function getObjectEntry(objectContextPath, id) {
@@ -1025,3 +1043,4 @@ Converts FreeMarker ADTs (e.g. `ap-blog-presentation-template.ftl`) into a reusa
 11. In React form state and API payloads: NEVER include 'status' (e.g. status: 0)! In Liferay Objects, status is a system-managed workflow state. Sending 'status' in POST/PUT causes 'Unable to map JSON path: status' HTTP 400 error! In liferayApi.js, createObjectEntry and updateObjectEntry MUST defensively strip 'status', 'id', 'creator', 'dateCreated', and 'dateModified' before sending!
 12. In React dropdowns (<select>) and radio options: Option values MUST MATCH Picklist entry keys EXACTLY! In Liferay, Picklist keys are alphanumeric (e.g. 'INPERSON', 'VIRTUAL', 'S', 'M'). NEVER use underscores like 'IN_PERSON' if the Picklist key is 'INPERSON', or Liferay will reject with 'not mapped to a valid list type entry'!
 13. Liferay API responses return Picklist fields as objects {"key": "VIRTUAL", "name": "Virtual"}, even though you send just the key! When rendering a picklist value from an API response (lists, detail and confirmation views), render value?.name ?? value, NEVER the object itself, or React crashes with error #31 (Objects are not valid as a React child).
+14. Call ONLY the Liferay endpoints listed in the playbook's 'Liferay Objects REST API' table (section 3.7). There is NO '/count', '/search', '/list' or '/all' endpoint! To count entries use countObjectEntries(), which reads 'totalCount' from GET [endpoint]?page=1&pageSize=1.
