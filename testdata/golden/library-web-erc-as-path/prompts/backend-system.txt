@@ -473,6 +473,12 @@ export async function deleteObjectEntry(objectContextPath, id) {
 }
 ```
 
+*Picklist values in responses:* you send a picklist field as its key (`"ticketType": "VIRTUAL"`), but Liferay returns it as an object: `"ticketType": {"key": "VIRTUAL", "name": "Virtual"}`. Never render that object directly (React error #31, *Objects are not valid as a React child*). Wherever a component shows data that came from the API (lists, detail and confirmation views), render the label with a fallback:
+```javascript
+const label = (value) => (value && typeof value === 'object' ? value.name ?? value.key : value);
+// <span className="badge badge-primary">{label(entry.ticketType)}</span>
+```
+
 ### 3.8 Entity List View & Row Actions Pattern
 When generating list/table components (e.g. `ListView.js` / `AssignmentList.js`):
 - **STRICT ACTION BUTTON RULE:** Every entity row MUST have functional **Edit** and **Delete** actions with working `onClick` handlers!
