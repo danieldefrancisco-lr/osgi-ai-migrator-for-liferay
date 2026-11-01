@@ -58,39 +58,10 @@ In modern Liferay, notifications are completely decoupled from code:
 
 ---
 
-## 4. Batch Client Extension Schema for Object Actions
-Object Actions triggering notifications can be pre-packaged into the Batch Client Extension under `batch/01-03-[entity]-actions.batch-engine-data.json`:
+## 4. Object Actions and Notification Templates Are Manual Steps
+Do **not** generate Object Actions or Notification Templates as batch files (no `*-actions.batch-engine-data.json` or `*-notification-template.batch-engine-data.json`): the migrator discards them, because they fail to deserialize in the Batch Engine. The Batch Client Extension only creates the folder, picklists and Object definitions.
 
-```json
-{
-  "configuration": {
-    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectAction",
-    "parameters": {
-      "createStrategy": "UPSERT",
-      "updateStrategy": "UPDATE"
-    }
-  },
-  "items": [
-    {
-      "active": true,
-      "description": "Send confirmation email to registrant after registration",
-      "externalReferenceCode": "ACTION_[ENTITY]_SEND_CONFIRMATION",
-      "label": {
-        "en_US": "Send Confirmation Email"
-      },
-      "name": "sendConfirmationEmail",
-      "objectActionExecutorKey": "notification",
-      "objectActionTriggerKey": "onAfterAdd",
-      "objectDefinitionExternalReferenceCode": "OBJ_[ENTITY]",
-      "parameters": {
-        "emailAddressField": "emailAddress",
-        "emailTemplateKey": "[template-key]",
-        "notificationType": "email"
-      }
-    }
-  ]
-}
-```
+Instead, plan the notification as a manual post-migration step: name the trigger (e.g. `On After Add`), the recipient field (e.g. `emailAddress`) and the template content (subject and body with object tokens such as `[%FIRSTNAME%]`), so the administrator can follow the checklist in section 5.
 
 ---
 
