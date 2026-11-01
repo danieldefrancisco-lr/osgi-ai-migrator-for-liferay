@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
 
 /**
  * Compares test output with the files in testdata/golden/<case>/, or rewrites them with -Dgolden.update=true.
- * Absolute paths under the temporary fixture copy are replaced with ${ROOT} so goldens are machine independent.
+ * Absolute paths under the temporary fixture copy are replaced with ${ROOT}, and CRLF with LF (the knowledge
+ * files' line endings depend on the git checkout), so goldens are machine independent.
  */
 public class Golden {
 
@@ -33,7 +34,7 @@ public class Golden {
     }
 
     public String normalize(String text) {
-        String s = text.replace(root, "${ROOT}").replace(root.replace('\\', '/'), "${ROOT}");
+        String s = text.replace("\r\n", "\n").replace(root, "${ROOT}").replace(root.replace('\\', '/'), "${ROOT}");
         Matcher m = ROOT_PATH.matcher(s);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
