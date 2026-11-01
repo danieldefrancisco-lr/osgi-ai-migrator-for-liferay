@@ -1,0 +1,40 @@
+architectureBlueprint:
+## Modernization Blueprint
+
+1. Liferay Objects: Book (title, format picklist), Author (name).
+2. Batch Client Extension: book-object.
+3. Frontend: library-web-custom-element (React), library-fragments collection.
+4. BookModelListener -> native Object Action "On After Add".
+
+generatedFiles:
+--- client-extensions/library-web-custom-element/package.json ---
+{
+    "name": "library-web-custom-element",
+    "scripts": {"build": "react-scripts build", "start": "react-scripts start"}
+}
+--- fragments/library-fragments/collection.json ---
+{"name": "Library Fragments"}
+--- fragments/library-fragments/book-card/fragment.json ---
+{"fragmentEntryKey": "book-card", "htmlPath": "index.html", "name": "Book Card", "type": "component"}
+--- styles/theme.css ---
+.book-card { color: red; }
+--- src/App.js ---
+export default function App() {
+    return <div className="container">Library</div>;
+}
+--- book-card-v2/fragment.json ---
+{"fragmentEntryKey": "book-card-v2", "name": "Book Card V2"}
+--- fragments/library-fragments/book-card/index.html ---
+<div class="book-card">${title}</div>
+--- client-extensions/library-web-custom-element/client-extension.yaml ---
+assemble:
+    - from: build/static
+      into: static
+library-web-custom-element:
+    cssURLs:
+        - css/main.*.css
+    htmlElementName: library-web-custom-element
+    name: Library
+    type: customElement
+    urls:
+        - js/main.*.js

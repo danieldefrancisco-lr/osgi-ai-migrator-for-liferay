@@ -1,0 +1,92 @@
+Here are the Batch Client Extension files.
+
+=== FILE: client-extensions/book-object/client-extension.yaml ===
+assemble:
+    - from: batch
+      into: batch
+book-batch:
+    name: Book Object Initialization
+    oAuthApplicationHeadlessServer: book-oauth
+    type: batch
+book-oauth:
+    .serviceAddress: localhost:8080
+    .serviceScheme: http
+    name: Book OAuth Headless Server
+    type: oAuthApplicationHeadlessServer
+=== END FILE ===
+
+=== FILE: `client-extensions/book-object/batch/01-00-folder-definition.batch-engine-data.json` ===
+{
+    "configuration": {
+        "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectFolder"
+    },
+    "items": [
+        {
+            "externalReferenceCode": "LIBRARY_FOLDER",
+            "name": "Library Objects 2026",
+            "label": {"en_US": "Library Objects"}
+        }
+    ]
+}
+=== END FILE ===
+
+=== FILE: client-extensions/book-object/batch/01-01-book-picklists.batch-engine-data.json ===
+{
+    "configuration": {
+        "className": "com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition"
+    },
+    "items": [
+        {
+            "externalReferenceCode": "BOOK_FORMAT",
+            "name": "Book Format",
+            "listTypeEntries": [
+                {"key": "in_person", "name": "In Person"},
+                {"key": "e-book", "name": "E-Book"},
+                {"key": "M", "name": "Medium"}
+            ]
+        }
+    ]
+}
+=== END FILE ===
+
+=== FILE: client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json ===
+{
+    "configuration": {
+        "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition"
+    },
+    "items": [
+        {
+            "externalReferenceCode": "BOOK",
+            "name": "Book",
+            "objectFields": [
+                {"name": "title", "businessType": "Text", "required": true, "localized": true},
+                {"name": "status", "businessType": "Integer"},
+                {
+                    "name": "format",
+                    "businessType": "Picklist",
+                    "objectFieldSettings": [
+                        {"name": "options", "value": ["a", "b"]}
+                    ]
+                },
+                {"name": "createDate", "businessType": "Date"}
+            ],
+            "objectLayouts": [
+                {"name": "Default", "objectLayoutTabs": [{"name": "Main"}]}
+            ],
+            "objectViews": [
+                {"name": "All Books", "objectViewColumns": [{"objectFieldName": "title"}]}
+            ],
+            "objectValidations": [],
+            "status": {"code": 0}
+        }
+    ]
+}
+=== END FILE ===
+
+=== FILE: client-extensions/book-object/batch/01-03-book-validations.batch-engine-data.json ===
+{"items": []}
+=== END FILE ===
+
+=== FILE: batch/02-sample-data.batch-engine-data.json ===
+{"items": [{"title": "Dune"}]}
+=== END FILE ===

@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<look-and-feel>
+	<compatibility><version>7.4.0+</version></compatibility>
+	<theme id="acme" name="Acme Theme" />
+</look-and-feel>

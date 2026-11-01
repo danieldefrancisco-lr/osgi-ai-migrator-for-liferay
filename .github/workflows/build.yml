@@ -44,16 +44,25 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Build with Tycho
+      # The characterization tests open SWT message dialogs, so they need a virtual display
+      - name: Build and test with Tycho
         run: |
           set -o pipefail
           ./mvnw -v
-          ./mvnw -B clean verify 2>&1 | tee build.log
+          xvfb-run -a ./mvnw -B clean verify 2>&1 | tee build.log
 
       # Job logs need a signed-in user; annotations are visible to anyone
       - name: Report build errors as annotations
         if: failure()
         run: grep -E '^\[ERROR\]' build.log | grep -v '^\[ERROR\] *$' | head -40 | sed 's/^/::error::/'
+
+      - name: Upload golden mismatches
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-actual
+          path: '**/target/golden-actual/'
+          if-no-files-found: ignore
 
       - name: Add landing page
         run: cp releng/io.github.danieldefrancisco_lr.migrator.updatesite/index.html "$UPDATE_SITE/"

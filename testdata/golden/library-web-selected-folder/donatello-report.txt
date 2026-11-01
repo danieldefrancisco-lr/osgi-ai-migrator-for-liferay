@@ -1,0 +1,28 @@
+================================================================================
+DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT
+================================================================================
+
+Module Name: library-web
+Source Liferay Platform Version: portal-7.3-ga1
+Liferay Workspace Root: ${ROOT}/gradle-workspace
+
+1. DOMAIN & SERVICE BUILDER:
+   - Has service.xml: NO
+   - Entities Detected (0): 
+
+2. USER INTERFACE & PORTLETS:
+   - Has JSP / Portlet: YES
+   - Portlets Detected (0): 
+
+3. OSGI EVENT LISTENERS & LOGIC:
+   - Model Listeners Detected (0): 
+   - Schedulers Detected (0): 
+   - Email/Notifications Detected (0): 
+
+4. THEMES & LOOK AND FEEL:
+   - Has Theme Artifacts: NO
+
+5. EXTRACTED SOURCE FILES (3 files):
+   - jsp:src/main/resources/META-INF/resources/view.jsp
+   - jsp:src/main/resources/META-INF/resources/edit_book.jspf
+   - jsp:src/main/resources/META-INF/resources/init.jsp

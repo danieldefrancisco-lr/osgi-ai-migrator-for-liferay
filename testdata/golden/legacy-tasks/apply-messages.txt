@@ -1,0 +1,10 @@
+Success
+Raphael (Verifier): Successfully written modern artifacts to:
+${ROOT}/standalone
+
+Files created: 6
+
+Migration History & Action Checklist saved to:
+  -> docs/migrations/legacy-tasks-migration-report.md
+  -> client-extensions/book-object/MIGRATION.md
+

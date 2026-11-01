@@ -1,0 +1,6 @@
+## Modernization Blueprint
+
+1. Liferay Objects: Book (title, format picklist), Author (name).
+2. Batch Client Extension: book-object.
+3. Frontend: library-web-custom-element (React), library-fragments collection.
+4. BookModelListener -> native Object Action "On After Add".

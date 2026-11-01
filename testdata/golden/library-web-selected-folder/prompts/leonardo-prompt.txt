@@ -1,0 +1,47 @@
+Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.
+USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. ). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug]).
+
+Determine:
+1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.
+2. Required Batch Client Extension structure, ONLY if backend objects are requested.
+3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.
+4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).
+
+### Legacy Module Analysis:
+Module Name: library-web
+Source Liferay Platform Version: portal-7.3-ga1
+Entities Detected: 
+Portlets Detected: 
+Listeners Detected: 
+Schedulers Detected: 
+Notifications Detected: 
+
+--- File: jsp:src/main/resources/META-INF/resources/view.jsp ---
+<%@ include file="/init.jsp" %>
+
+<h2>Library</h2>
+
+<liferay-ui:search-container total="<%= BookLocalServiceUtil.getBooksCount() %>">
+	<liferay-ui:search-container-results results="<%= BookLocalServiceUtil.getBooks(searchContainer.getStart(), searchContainer.getEnd()) %>" />
+	<liferay-ui:search-container-row className="com.acme.library.model.Book" modelVar="book">
+		<liferay-ui:search-container-column-text name="title" property="title" />
+	</liferay-ui:search-container-row>
+	<liferay-ui:search-iterator />
+</liferay-ui:search-container>
+
+
+--- File: jsp:src/main/resources/META-INF/resources/edit_book.jspf ---
+<aui:form action="<%= saveBookURL %>" name="fm">
+	<aui:input name="title" />
+	<aui:select name="format">
+		<aui:option value="in_person" />
+	</aui:select>
+</aui:form>
+
+
+--- File: jsp:src/main/resources/META-INF/resources/init.jsp ---
+<%@ taglib uri="http://java.sun.com/portlet_2_0" prefix="portlet" %>
+
+<portlet:defineObjects />
+
+

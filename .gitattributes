@@ -1,0 +1,2 @@
+# Byte-exact test data: fixtures include CRLF files on purpose and goldens are compared exactly
+testdata/** -text

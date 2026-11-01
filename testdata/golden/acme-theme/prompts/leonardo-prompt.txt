@@ -1,0 +1,37 @@
+Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.
+USER PREFERENCE: The user chose NOT to generate backend Objects. Assume the Liferay Objects already exist or are migrated separately. DO NOT generate any Batch Client Extension. Focus strictly on generating the Frontend Custom Element Client Extension (calling /o/c/[slug]).
+
+Determine:
+1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.
+2. Required Batch Client Extension structure, ONLY if backend objects are requested.
+3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.
+4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).
+
+### Legacy Module Analysis:
+Module Name: acme-theme
+Source Liferay Platform Version: Liferay BOM 7.4.13.u100
+Entities Detected: 
+Portlets Detected: 
+Listeners Detected: 
+Schedulers Detected: 
+Notifications Detected: 
+
+--- File: theme:liferay-look-and-feel.xml ---
+<?xml version="1.0"?>
+<look-and-feel>
+	<compatibility><version>7.4.0+</version></compatibility>
+	<theme id="acme" name="Acme Theme" />
+</look-and-feel>
+
+
+--- File: theme:portal_normal.ftl ---
+<!DOCTYPE html>
+<html class="${root_css_class}">
+<head><title>${the_title}</title></head>
+<body>
+<#include "${full_templates_path}/navigation.ftl" />
+${body_bottom_include}
+</body>
+</html>
+
+

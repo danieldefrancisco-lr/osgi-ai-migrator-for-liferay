@@ -1,0 +1,9 @@
+<project>
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.acme</groupId>
+	<artifactId>acme-workspace</artifactId>
+	<version>1.0.0</version>
+	<properties>
+		<liferay.bom.version>7.4.13.u100</liferay.bom.version>
+	</properties>
+</project>

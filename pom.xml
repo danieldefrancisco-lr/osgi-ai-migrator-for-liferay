@@ -19,6 +19,7 @@
     <modules>
         <module>releng/io.github.danieldefrancisco_lr.migrator.target</module>
         <module>bundles/io.github.danieldefrancisco_lr.migrator</module>
+        <module>bundles/io.github.danieldefrancisco_lr.migrator.tests</module>
         <module>features/io.github.danieldefrancisco_lr.migrator.feature</module>
         <module>releng/io.github.danieldefrancisco_lr.migrator.updatesite</module>
     </modules>

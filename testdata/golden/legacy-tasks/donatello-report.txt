@@ -1,0 +1,27 @@
+================================================================================
+DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT
+================================================================================
+
+Module Name: legacy-tasks
+Source Liferay Platform Version: release.dxp.api 7.2.10
+Liferay Workspace Root: ${ROOT}/standalone
+
+1. DOMAIN & SERVICE BUILDER:
+   - Has service.xml: YES
+   - Entities Detected (1): Task
+
+2. USER INTERFACE & PORTLETS:
+   - Has JSP / Portlet: NO
+   - Portlets Detected (0): 
+
+3. OSGI EVENT LISTENERS & LOGIC:
+   - Model Listeners Detected (0): 
+   - Schedulers Detected (1): TaskCleanupExecutor.java
+   - Email/Notifications Detected (0): 
+
+4. THEMES & LOOK AND FEEL:
+   - Has Theme Artifacts: NO
+
+5. EXTRACTED SOURCE FILES (2 files):
+   - service.xml
+   - java:scheduler:TaskCleanupExecutor.java

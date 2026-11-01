@@ -1,0 +1,6 @@
+<aui:form action="<%= saveBookURL %>" name="fm">
+	<aui:input name="title" />
+	<aui:select name="format">
+		<aui:option value="in_person" />
+	</aui:select>
+</aui:form>

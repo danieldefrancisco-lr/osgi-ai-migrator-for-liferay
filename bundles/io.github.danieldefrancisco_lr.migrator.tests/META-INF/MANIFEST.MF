@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: OSGi AI Migrator for Liferay - Tests
+Bundle-SymbolicName: io.github.danieldefrancisco_lr.migrator.tests
+Bundle-Version: 3.0.0.qualifier
+Bundle-Vendor: Daniel de Francisco
+Fragment-Host: io.github.danieldefrancisco_lr.migrator
+Bundle-RequiredExecutionEnvironment: JavaSE-17
+Import-Package: org.junit.jupiter.api;version="[5.0.0,6.0.0)"
+Automatic-Module-Name: io.github.danieldefrancisco_lr.migrator.tests

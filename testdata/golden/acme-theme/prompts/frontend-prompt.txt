@@ -1,0 +1,41 @@
+Based on Leonardo's blueprint below, generate the complete, ready-to-deploy React Custom Element files.
+Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.
+
+Blueprint:
+## Modernization Blueprint
+
+1. Liferay Objects: Book (title, format picklist), Author (name).
+2. Batch Client Extension: book-object.
+3. Frontend: library-web-custom-element (React), library-fragments collection.
+4. BookModelListener -> native Object Action "On After Add".
+
+
+Legacy Context:
+### Legacy Module Analysis:
+Module Name: acme-theme
+Source Liferay Platform Version: Liferay BOM 7.4.13.u100
+Entities Detected: 
+Portlets Detected: 
+Listeners Detected: 
+Schedulers Detected: 
+Notifications Detected: 
+
+--- File: theme:liferay-look-and-feel.xml ---
+<?xml version="1.0"?>
+<look-and-feel>
+	<compatibility><version>7.4.0+</version></compatibility>
+	<theme id="acme" name="Acme Theme" />
+</look-and-feel>
+
+
+--- File: theme:portal_normal.ftl ---
+<!DOCTYPE html>
+<html class="${root_css_class}">
+<head><title>${the_title}</title></head>
+<body>
+<#include "${full_templates_path}/navigation.ftl" />
+${body_bottom_include}
+</body>
+</html>
+
+

@@ -1,0 +1,27 @@
+================================================================================
+DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT
+================================================================================
+
+Module Name: acme-theme
+Source Liferay Platform Version: Liferay BOM 7.4.13.u100
+Liferay Workspace Root: ${ROOT}/maven-workspace
+
+1. DOMAIN & SERVICE BUILDER:
+   - Has service.xml: NO
+   - Entities Detected (0): 
+
+2. USER INTERFACE & PORTLETS:
+   - Has JSP / Portlet: NO
+   - Portlets Detected (0): 
+
+3. OSGI EVENT LISTENERS & LOGIC:
+   - Model Listeners Detected (0): 
+   - Schedulers Detected (0): 
+   - Email/Notifications Detected (0): 
+
+4. THEMES & LOOK AND FEEL:
+   - Has Theme Artifacts: YES
+
+5. EXTRACTED SOURCE FILES (2 files):
+   - theme:liferay-look-and-feel.xml
+   - theme:portal_normal.ftl

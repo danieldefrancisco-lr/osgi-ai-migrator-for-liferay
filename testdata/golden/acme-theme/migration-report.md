@@ -1,0 +1,106 @@
+# Modernization Report & Action Guide
+
+- **Generated on:** <TIMESTAMP>
+- **Source Module:** `acme-theme`
+- **Source Liferay Platform Version:** `Liferay BOM 7.4.13.u100`
+- **Target Standard:** Liferay DXP 7.4+ Client Extensions & Objects
+
+---
+
+## 1. Donatello (The Analyzer) - Legacy Extraction Summary
+
+```
+================================================================================
+DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT
+================================================================================
+
+Module Name: acme-theme
+Source Liferay Platform Version: Liferay BOM 7.4.13.u100
+Liferay Workspace Root: ${ROOT}/maven-workspace
+
+1. DOMAIN & SERVICE BUILDER:
+   - Has service.xml: NO
+   - Entities Detected (0): 
+
+2. USER INTERFACE & PORTLETS:
+   - Has JSP / Portlet: NO
+   - Portlets Detected (0): 
+
+3. OSGI EVENT LISTENERS & LOGIC:
+   - Model Listeners Detected (0): 
+   - Schedulers Detected (0): 
+   - Email/Notifications Detected (0): 
+
+4. THEMES & LOOK AND FEEL:
+   - Has Theme Artifacts: YES
+
+5. EXTRACTED SOURCE FILES (2 files):
+   - theme:liferay-look-and-feel.xml
+   - theme:portal_normal.ftl
+```
+
+---
+
+## 2. Leonardo (The Architect) - Modernization Blueprint
+
+## Modernization Blueprint
+
+1. Liferay Objects: Book (title, format picklist), Author (name).
+2. Batch Client Extension: book-object.
+3. Frontend: library-web-custom-element (React), library-fragments collection.
+4. BookModelListener -> native Object Action "On After Add".
+
+
+---
+
+## 3. Michelangelo (The Coder) - Generated Artifacts Inventory
+
+- `client-extensions/library-web-custom-element/package.json`
+- `fragments/library-fragments/collection.json`
+- `fragments/library-fragments/book-card/fragment.json`
+- `styles/theme.css`
+- `src/App.js`
+- `book-card-v2/fragment.json`
+- `fragments/library-fragments/book-card/index.html`
+- `client-extensions/library-web-custom-element/client-extension.yaml`
+
+---
+
+## 4. Raphael (The Verifier) - Post-Migration Action Checklist
+
+================================================================================
+RAPHAEL (THE VERIFIER) - PRE-FLIGHT QUALITY ASSURANCE REPORT
+================================================================================
+
+PRE-FLIGHT CHECKS:
+   [PASS] Canonical client-extension.yaml present
+   [PASS] Zero schema conflicts or anti-patterns detected.
+
+POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
+
+1. DEPLOY CLIENT EXTENSIONS:
+   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):
+   - Frontend Custom Element Client Extensions (deploy AFTER objects are active):
+     blade gw :client-extensions:library-web-custom-element:deploy
+
+2. IMPORT PAGE FRAGMENTS (IF GENERATED):
+   - Locate the pre-zipped archive: 'fragments/<collection-name>.zip'
+   - In Liferay: Navigate to Site Administration -> Design -> Fragments
+   - Click the (...) menu at the top-right -> Import -> upload the .zip file
+
+3. CONFIGURE OBJECT PERMISSIONS (MANDATORY FOR ACCESS):
+   - By default, newly deployed Liferay Objects restrict Guest and User access.
+   - Navigate to: Control Panel -> Objects -> [Your Object] -> Permissions tab
+   - Grant 'View' and 'Add Object Entry' permissions to 'User' and/or 'Guest' roles.
+
+4. ADD CUSTOM ELEMENT WIDGET TO CONTENT PAGES:
+   - In Liferay, edit any Content Page in the Page Editor.
+   - Open the Fragments & Widgets panel -> search for your Custom Element under 'Client Extensions'.
+   - Drag and drop the widget onto the page and publish!
+
+5. OPTIONAL: CREATE DISPLAY PAGE TEMPLATES (DPT):
+   - For dedicated detail pages for each record without writing React routes:
+   - Navigate to: Site Administration -> Design -> Page Templates -> Display Page Templates
+   - Click 'Add' -> Select your Object definition as the Content Type
+   - Design the detail view using Page Fragments and visually map title, description, and date fields.
+

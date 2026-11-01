@@ -1,0 +1,30 @@
+================================================================================
+DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT
+================================================================================
+
+Module Name: library-service
+Source Liferay Platform Version: portal-7.3-ga1
+Liferay Workspace Root: ${ROOT}/gradle-workspace
+
+1. DOMAIN & SERVICE BUILDER:
+   - Has service.xml: YES
+   - Entities Detected (3): Book, Author, ModelListener
+
+2. USER INTERFACE & PORTLETS:
+   - Has JSP / Portlet: NO
+   - Portlets Detected (0): 
+
+3. OSGI EVENT LISTENERS & LOGIC:
+   - Model Listeners Detected (1): BookModelListener.java
+   - Schedulers Detected (1): OverdueBooksScheduler.java
+   - Email/Notifications Detected (1): OverdueBooksScheduler.java
+
+4. THEMES & LOOK AND FEEL:
+   - Has Theme Artifacts: NO
+
+5. EXTRACTED SOURCE FILES (5 files):
+   - service.xml
+   - java:scheduler:OverdueBooksScheduler.java
+   - java:listener:BookModelListener.java
+   - java:wrapper:CustomBookLocalServiceWrapper.java
+   - java:notification:OverdueBooksScheduler.java

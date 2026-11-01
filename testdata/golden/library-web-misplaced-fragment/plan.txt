@@ -1,0 +1,119 @@
+architectureBlueprint:
+## Modernization Blueprint
+
+1. Liferay Objects: Book (title, format picklist), Author (name).
+2. Batch Client Extension: book-object.
+3. Frontend: library-web-custom-element (React), library-fragments collection.
+4. BookModelListener -> native Object Action "On After Add".
+
+generatedFiles:
+--- client-extensions/library-web-custom-element/package.json ---
+{
+    "name": "library-web-custom-element",
+    "scripts": {"build": "react-scripts build", "start": "react-scripts start"}
+}
+--- styles/theme.css ---
+.book-card { color: red; }
+--- client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json ---
+{
+    "configuration": {
+        "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition"
+    },
+    "items": [
+        {
+            "externalReferenceCode": "BOOK",
+            "name": "Book",
+            "objectFields": [
+                {"name": "title", "businessType": "Text", "required": true, "localized": true},
+                {"name": "status", "businessType": "Integer"},
+                {
+                    "name": "format",
+                    "businessType": "Picklist",
+                    "objectFieldSettings": [
+                        {"name": "options", "value": ["a", "b"]}
+                    ]
+                },
+                {"name": "createDate", "businessType": "Date"}
+            ],
+            "objectLayouts": [
+                {"name": "Default", "objectLayoutTabs": [{"name": "Main"}]}
+            ],
+            "objectViews": [
+                {"name": "All Books", "objectViewColumns": [{"objectFieldName": "title"}]}
+            ],
+            "objectValidations": [],
+            "status": {"code": 0}
+        }
+    ]
+}
+--- client-extensions/book-object/batch/01-03-book-validations.batch-engine-data.json ---
+{"items": []}
+--- client-extensions/book-object/client-extension.yaml ---
+assemble:
+    - from: batch
+      into: batch
+book-batch:
+    name: Book Object Initialization
+    oAuthApplicationHeadlessServer: book-oauth
+    type: batch
+book-oauth:
+    .serviceAddress: localhost:8080
+    .serviceScheme: http
+    name: Book OAuth Headless Server
+    type: oAuthApplicationHeadlessServer
+--- book-card-v2/fragment.json ---
+{"fragmentEntryKey": "book-card-v2", "name": "Book Card V2"}
+--- fragments/library-fragments/book-card/index.html ---
+<div class="book-card">${title}</div>
+--- client-extensions/library-web-custom-element/client-extension.yaml ---
+assemble:
+    - from: build/static
+      into: static
+library-web-custom-element:
+    cssURLs:
+        - css/main.*.css
+    htmlElementName: library-web-custom-element
+    name: Library
+    type: customElement
+    urls:
+        - js/main.*.js
+--- fragments/library-fragments/book-card/fragment.json ---
+{"fragmentEntryKey": "book-card", "htmlPath": "index.html", "name": "Book Card", "type": "component"}
+--- client-extensions/library-fragments/collection.json ---
+{"name": "Library Fragments"}
+--- client-extensions/book-object/batch/01-01-book-picklists.batch-engine-data.json ---
+{
+    "configuration": {
+        "className": "com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition"
+    },
+    "items": [
+        {
+            "externalReferenceCode": "BOOK_FORMAT",
+            "name": "Book Format",
+            "listTypeEntries": [
+                {"key": "in_person", "name": "In Person"},
+                {"key": "e-book", "name": "E-Book"},
+                {"key": "M", "name": "Medium"}
+            ]
+        }
+    ]
+}
+--- src/App.js ---
+export default function App() {
+    return <div className="container">Library</div>;
+}
+--- client-extensions/book-object/batch/01-00-folder-definition.batch-engine-data.json ---
+{
+    "configuration": {
+        "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectFolder"
+    },
+    "items": [
+        {
+            "externalReferenceCode": "LIBRARY_FOLDER",
+            "name": "Library Objects 2026",
+            "label": {"en_US": "Library Objects"}
+        }
+    ]
+}
+--- batch/02-sample-data.batch-engine-data.json ---
+{"items": [{"title": "Dune"}]}

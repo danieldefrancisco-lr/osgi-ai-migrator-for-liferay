@@ -1,0 +1,127 @@
+Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.
+USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. Book, Author, ModelListener). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug]).
+
+Determine:
+1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.
+2. Required Batch Client Extension structure, ONLY if backend objects are requested.
+3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.
+4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).
+
+### Legacy Module Analysis:
+Module Name: library-service
+Source Liferay Platform Version: portal-7.3-ga1
+Entities Detected: Book, Author, ModelListener
+Portlets Detected: 
+Listeners Detected: BookModelListener.java
+Schedulers Detected: OverdueBooksScheduler.java
+Notifications Detected: OverdueBooksScheduler.java
+
+--- File: service.xml ---
+<?xml version="1.0"?>
+<!DOCTYPE service-builder PUBLIC "-//Liferay//DTD Service Builder 7.3.0//EN" "http://www.liferay.com/dtd/liferay-service-builder_7_3_0.dtd">
+
+<service-builder dependency-injector="ds" package-path="com.acme.library">
+	<namespace>Library</namespace>
+	<entity local-service="true" name="Book" remote-service="true" uuid="true">
+		<column name="bookId" primary="true" type="long" />
+		<column name="companyId" type="long" />
+		<column name="title" type="String" />
+		<column name="format" type="String" />
+		<column name="status" type="int" />
+	</entity>
+	<entity local-service="true" name="Author" remote-service="false">
+		<column name="authorId" primary="true" type="long" />
+		<column name="name" type="String" />
+	</entity>
+</service-builder>
+
+
+--- File: java:scheduler:OverdueBooksScheduler.java ---
+package com.acme.library.scheduler;
+
+import com.acme.library.model.Book;
+import com.liferay.mail.kernel.model.MailMessage;
+import com.liferay.mail.kernel.service.MailServiceUtil;
+import com.liferay.portal.kernel.messaging.BaseMessageListener;
+import com.liferay.portal.kernel.messaging.Message;
+
+import javax.mail.internet.InternetAddress;
+
+public class OverdueBooksScheduler extends BaseMessageListener {
+
+	@Override
+	protected void doReceive(Message message) throws Exception {
+		MailMessage mailMessage = new MailMessage(
+			new InternetAddress("library@acme.com"),
+			new InternetAddress("member@acme.com"), "Overdue", "Return it", false);
+
+		MailServiceUtil.sendEmail(mailMessage);
+	}
+
+}
+
+
+--- File: java:listener:BookModelListener.java ---
+package com.acme.library.model.listener;
+
+import com.acme.library.model.Book;
+import com.acme.library.model.BookModel;
+import com.liferay.portal.kernel.model.BaseModelListener;
+import com.liferay.portal.kernel.model.ModelListener;
+
+import org.osgi.service.component.annotations.Component;
+
+@Component(service = ModelListener.class)
+public class BookModelListener extends BaseModelListener<Book> {
+
+	@Override
+	public void onAfterCreate(Book book) {
+		System.out.println("Created book " + book.getTitle());
+	}
+
+}
+
+
+--- File: java:wrapper:CustomBookLocalServiceWrapper.java ---
+package com.acme.library.service.wrapper;
+
+import com.acme.library.service.BookLocalServiceWrapper;
+import com.liferay.portal.kernel.service.ServiceWrapper;
+
+import org.osgi.service.component.annotations.Component;
+
+@Component(service = ServiceWrapper.class)
+public class CustomBookLocalServiceWrapper extends BookLocalServiceWrapper {
+
+	public CustomBookLocalServiceWrapper() {
+		super(null);
+	}
+
+}
+
+
+--- File: java:notification:OverdueBooksScheduler.java ---
+package com.acme.library.scheduler;
+
+import com.acme.library.model.Book;
+import com.liferay.mail.kernel.model.MailMessage;
+import com.liferay.mail.kernel.service.MailServiceUtil;
+import com.liferay.portal.kernel.messaging.BaseMessageListener;
+import com.liferay.portal.kernel.messaging.Message;
+
+import javax.mail.internet.InternetAddress;
+
+public class OverdueBooksScheduler extends BaseMessageListener {
+
+	@Override
+	protected void doReceive(Message message) throws Exception {
+		MailMessage mailMessage = new MailMessage(
+			new InternetAddress("library@acme.com"),
+			new InternetAddress("member@acme.com"), "Overdue", "Return it", false);
+
+		MailServiceUtil.sendEmail(mailMessage);
+	}
+
+}
+
+

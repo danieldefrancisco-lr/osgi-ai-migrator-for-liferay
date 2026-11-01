@@ -1,0 +1,2 @@
+Write Error
+Failed to write files: ${ROOT}/gradle-workspace/client-extensions/library-fragments/MIGRATION.md

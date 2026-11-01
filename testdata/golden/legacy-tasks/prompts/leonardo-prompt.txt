@@ -1,0 +1,39 @@
+Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.
+USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. Task). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug]).
+
+Determine:
+1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.
+2. Required Batch Client Extension structure, ONLY if backend objects are requested.
+3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.
+4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).
+
+### Legacy Module Analysis:
+Module Name: legacy-tasks
+Source Liferay Platform Version: release.dxp.api 7.2.10
+Entities Detected: Task
+Portlets Detected: 
+Listeners Detected: 
+Schedulers Detected: TaskCleanupExecutor.java
+Notifications Detected: 
+
+--- File: service.xml ---
+<?xml version="1.0"?>
+<!DOCTYPE service-builder PUBLIC "-//Liferay//DTD Service Builder 7.1.0//EN" "http://www.liferay.com/dtd/liferay-service-builder_7_1_0.dtd">
+<service-builder package-path="com.acme.tasks">
+	<entity name="Task" local-service="true">
+		<column name="taskId" primary="true" type="long" />
+	</entity>
+</service-builder>
+
+
+--- File: java:scheduler:TaskCleanupExecutor.java ---
+package com.acme.tasks.scheduler;
+
+import com.acme.tasks.model.Task;
+import com.liferay.dispatch.executor.DispatchTaskExecutor;
+import com.liferay.portal.kernel.scheduler.SchedulerEntry;
+
+public class TaskCleanupExecutor implements DispatchTaskExecutor {
+}
+
+

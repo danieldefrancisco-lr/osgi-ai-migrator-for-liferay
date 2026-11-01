@@ -1,0 +1,39 @@
+moduleName: library-web
+projectPath: ${ROOT}/gradle-workspace/modules/library/library-web/src/main/resources
+liferayWorkspaceRoot: ${ROOT}/gradle-workspace
+sourceLiferayVersion: portal-7.3-ga1
+hasServiceBuilder: false
+hasJspPortlet: true
+hasTheme: false
+detectedEntities: []
+detectedPortlets: []
+detectedListeners: []
+detectedSchedulers: []
+detectedNotifications: []
+rawSourceExtracts:
+--- jsp:src/main/resources/META-INF/resources/view.jsp ---
+<%@ include file="/init.jsp" %>
+
+<h2>Library</h2>
+
+<liferay-ui:search-container total="<%= BookLocalServiceUtil.getBooksCount() %>">
+	<liferay-ui:search-container-results results="<%= BookLocalServiceUtil.getBooks(searchContainer.getStart(), searchContainer.getEnd()) %>" />
+	<liferay-ui:search-container-row className="com.acme.library.model.Book" modelVar="book">
+		<liferay-ui:search-container-column-text name="title" property="title" />
+	</liferay-ui:search-container-row>
+	<liferay-ui:search-iterator />
+</liferay-ui:search-container>
+
+--- jsp:src/main/resources/META-INF/resources/edit_book.jspf ---
+<aui:form action="<%= saveBookURL %>" name="fm">
+	<aui:input name="title" />
+	<aui:select name="format">
+		<aui:option value="in_person" />
+	</aui:select>
+</aui:form>
+
+--- jsp:src/main/resources/META-INF/resources/init.jsp ---
+<%@ taglib uri="http://java.sun.com/portlet_2_0" prefix="portlet" %>
+
+<portlet:defineObjects />
+

@@ -1,0 +1,30 @@
+moduleName: acme-theme
+projectPath: ${ROOT}/maven-workspace/themes/acme-theme
+liferayWorkspaceRoot: ${ROOT}/maven-workspace
+sourceLiferayVersion: Liferay BOM 7.4.13.u100
+hasServiceBuilder: false
+hasJspPortlet: false
+hasTheme: true
+detectedEntities: []
+detectedPortlets: []
+detectedListeners: []
+detectedSchedulers: []
+detectedNotifications: []
+rawSourceExtracts:
+--- theme:liferay-look-and-feel.xml ---
+<?xml version="1.0"?>
+<look-and-feel>
+	<compatibility><version>7.4.0+</version></compatibility>
+	<theme id="acme" name="Acme Theme" />
+</look-and-feel>
+
+--- theme:portal_normal.ftl ---
+<!DOCTYPE html>
+<html class="${root_css_class}">
+<head><title>${the_title}</title></head>
+<body>
+<#include "${full_templates_path}/navigation.ftl" />
+${body_bottom_include}
+</body>
+</html>
+
