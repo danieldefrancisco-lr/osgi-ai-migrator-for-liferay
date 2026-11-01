@@ -99,22 +99,25 @@ public class MainTest {
     }
 
     @Test
-    public void settingsPrecedenceIsOptionsThenEnvironmentThenFile() throws Exception {
+    public void settingsPrecedenceIsOptionsThenFileThenEnvironment() throws Exception {
         Path config = tmp.resolve("config.properties");
-        Files.writeString(config, "geminiModel=from-file\nvertexRegion=europe-west1\ngeminiApiKey=file-key-1234\n");
+        Files.writeString(config, "geminiModel=from-file\nvertexProjectId=file-project\n");
         CliSettings settings = new CliSettings(
             Map.of(GeminiSettings.P_GEMINI_MODEL, "from-option"),
-            Map.of("GEMINI_API_KEY", "env-key-5678", "GOOGLE_CLOUD_LOCATION", "us-east1"),
+            Map.of("GEMINI_API_KEY", "env-key-5678", "GOOGLE_CLOUD_PROJECT", "env-project", "GOOGLE_CLOUD_LOCATION", "us-east1"),
             config);
         assertEquals("from-option", settings.get(GeminiSettings.P_GEMINI_MODEL));
-        assertEquals("us-east1", settings.get(GeminiSettings.P_VERTEX_REGION));
+        assertEquals("file-project", settings.get(GeminiSettings.P_VERTEX_PROJECT_ID), "the config file wins over shared env vars");
+        assertEquals("us-east1", settings.get(GeminiSettings.P_VERTEX_REGION), "env vars fill what the file leaves unset");
         assertEquals("env-key-5678", settings.getSecret(GeminiSettings.P_GEMINI_API_KEY));
-        assertEquals(GeminiSettings.AUTH_TYPE_AI_STUDIO, settings.get(GeminiSettings.P_AUTH_TYPE), "an API key selects AI Studio");
+        assertEquals(GeminiSettings.AUTH_TYPE_GCLOUD_ADC, settings.get(GeminiSettings.P_AUTH_TYPE),
+            "an API key in the environment alone must not switch to AI Studio");
         assertTrue(settings.describe().contains("****5678"), "the API key must be masked");
         assertTrue(!settings.describe().contains("env-key-5678"));
 
-        CliSettings defaults = new CliSettings(Map.of(), Map.of(), tmp.resolve("missing.properties"));
-        assertEquals(GeminiSettings.AUTH_TYPE_GCLOUD_ADC, defaults.get(GeminiSettings.P_AUTH_TYPE));
+        Files.writeString(config, "geminiAuthType=AI_STUDIO\n");
+        CliSettings aiStudio = new CliSettings(Map.of(), Map.of(), config);
+        assertEquals(GeminiSettings.AUTH_TYPE_AI_STUDIO, aiStudio.get(GeminiSettings.P_AUTH_TYPE));
     }
 
     private int run(String... args) {

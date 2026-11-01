@@ -12,9 +12,10 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Gemini settings for the CLI, resolved per key from (highest first): command-line options, environment variables,
- * the config file (~/.osgi-ai-migrator/config.properties) and defaults. The API key is never taken from the command
- * line, so it does not end up in the shell history.
+ * Gemini settings for the CLI, resolved per key from (highest first): command-line options, the config file
+ * (~/.osgi-ai-migrator/config.properties), the standard Google environment variables and defaults. The config file
+ * wins over the environment because those variables are shared with other tools, while the file is only ours.
+ * The API key is never taken from the command line, so it does not end up in the shell history.
  */
 public class CliSettings implements GeminiSettings {
 
@@ -46,21 +47,15 @@ public class CliSettings implements GeminiSettings {
             String envVar = ENV_VARS.get(key);
             if (!isBlank(options.get(key))) {
                 put(key, options.get(key), "command line");
-            } else if (envVar != null && !isBlank(env.get(envVar))) {
-                put(key, env.get(envVar), "environment variable " + envVar);
             } else if (!isBlank(file.getProperty(key))) {
                 put(key, file.getProperty(key).trim(), configFile.toString());
+            } else if (envVar != null && !isBlank(env.get(envVar))) {
+                put(key, env.get(envVar), "environment variable " + envVar);
             }
         }
         if (!values.containsKey(P_AUTH_TYPE)) {
-            // Pick the authentication that the available credentials allow
-            if (values.containsKey(P_GEMINI_API_KEY)) {
-                put(P_AUTH_TYPE, AUTH_TYPE_AI_STUDIO, "default (API key found)");
-            } else if (values.containsKey(P_SERVICE_ACCOUNT_FILE)) {
-                put(P_AUTH_TYPE, AUTH_TYPE_VERTEX_AI, "default (service account file found)");
-            } else {
-                put(P_AUTH_TYPE, DEFAULT_AUTH_TYPE, "default");
-            }
+            // Same default as the Eclipse plugin; an API key in the environment alone does not switch to AI Studio
+            put(P_AUTH_TYPE, DEFAULT_AUTH_TYPE, "default");
         }
     }
 
@@ -81,8 +76,8 @@ public class CliSettings implements GeminiSettings {
 
     @Override
     public String configurationHint() {
-        return "the environment (GEMINI_API_KEY, GOOGLE_APPLICATION_CREDENTIALS, GOOGLE_CLOUD_PROJECT), " + configFile +
-            " or the command-line options (run 'osgi-ai-migrator config' to see the settings in effect)";
+        return configFile + ", the command-line options or the environment (GEMINI_API_KEY, GOOGLE_APPLICATION_CREDENTIALS, " +
+            "GOOGLE_CLOUD_PROJECT) (run 'osgi-ai-migrator config' to see the settings in effect)";
     }
 
     /** The settings in effect and where each comes from, with the API key masked. */

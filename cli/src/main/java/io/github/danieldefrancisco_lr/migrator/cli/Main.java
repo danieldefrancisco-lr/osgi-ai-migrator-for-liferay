@@ -45,10 +45,11 @@ public class Main {
         "  --json                   Machine-readable output\n" +
         "  --config <file>          Settings file (default: ~/.osgi-ai-migrator/config.properties)\n" +
         "\n" +
-        "Gemini settings (override the environment and the config file):\n" +
-        "  --auth <GCLOUD_ADC|VERTEX_AI|AI_STUDIO>   --model <name>   --temperature <n>\n" +
-        "  --project <gcp-project>   --region <region>   --service-account <file.json>   --endpoint <url>\n" +
-        "  The API key is read from GEMINI_API_KEY or the config file (key geminiApiKey), never from the command line.\n" +
+        "Gemini settings (precedence: these options, then the config file, then the environment):\n" +
+        "  --auth <GCLOUD_ADC|VERTEX_AI|AI_STUDIO>   (default GCLOUD_ADC, as in Eclipse)\n" +
+        "  --model <name>   --temperature <n>   --project <gcp-project>   --region <region>\n" +
+        "  --service-account <file.json>   --endpoint <url>\n" +
+        "  The API key is read from the config file (geminiApiKey) or GEMINI_API_KEY, never from the command line.\n" +
         "\n" +
         "  -h, --help   --version\n";
 

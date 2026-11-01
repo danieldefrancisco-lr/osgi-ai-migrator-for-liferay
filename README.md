@@ -51,17 +51,21 @@ Other options: `--folder <path>` (one folder of the module), `--no-backend` (fro
 `--workspace <dir>`, `--json` (machine-readable output). Run with `--help` for all of them.
 
 Gemini settings are resolved from the command line (`--auth`, `--model`, `--project`, `--region`,
-`--service-account`, `--temperature`, `--endpoint`), then the environment (`GEMINI_API_KEY`,
-`GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`), then
-`~/.osgi-ai-migrator/config.properties`, which uses the same keys as the Eclipse preferences:
+`--service-account`, `--temperature`, `--endpoint`), then `~/.osgi-ai-migrator/config.properties`
+(on Windows `%USERPROFILE%\.osgi-ai-migrator\config.properties`), then the standard Google environment
+variables (`GEMINI_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`,
+`GOOGLE_CLOUD_LOCATION`). The file wins over the environment because those variables are often set for
+other tools. It uses the same keys as the Eclipse preferences:
 
 ```
-geminiAuthType=AI_STUDIO
+geminiAuthType=GCLOUD_ADC
+vertexProjectId=my-gcp-project
+vertexRegion=us-central1
 geminiModel=gemini-2.5-flash
-geminiApiKey=...
 ```
 
-Without settings it uses gcloud ADC (`gcloud auth login`). `java -jar osgi-ai-migrator-cli.jar config`
+As in Eclipse, the default authentication is gcloud ADC (`gcloud auth login`); use
+`geminiAuthType=AI_STUDIO` (or `--auth AI_STUDIO`) for an API key. `java -jar osgi-ai-migrator-cli.jar config`
 shows the settings in effect and where each one comes from.
 
 ## Build
