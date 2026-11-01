@@ -48,8 +48,8 @@ public class MigratorConfigurable implements Configurable {
         projectId = new JBTextField();
         region = new JBTextField();
         serviceAccountFile = new TextFieldWithBrowseButton();
-        serviceAccountFile.addBrowseFolderListener("Service Account JSON", null, null,
-            FileChooserDescriptorFactory.createSingleFileDescriptor("json"));
+        serviceAccountFile.addBrowseFolderListener(null,
+            FileChooserDescriptorFactory.createSingleFileDescriptor("json").withTitle("Service Account JSON"));
         apiKey = new JBPasswordField();
         endpoint = new JBTextField();
         model = new JBTextField();

@@ -34,6 +34,23 @@ Or use *Help → Install New Software → Add…* and enter the update site URL:
 https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
 ```
 
+## IntelliJ IDEA and other JetBrains IDEs
+
+The `intellij/` plugin works in every JetBrains IDE from 2024.3 on. Right-click a module (or one of its
+folders) in the Project view and choose **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...**;
+Gemini is configured in **Settings → Tools → OSGi AI Migrator for Liferay** (the API key goes to the IDE's
+password safe). Until it is on the JetBrains Marketplace, install the zip with
+**Settings → Plugins → ⚙ → Install Plugin from Disk...**.
+
+To build it, install the core with Maven first, then use Gradle:
+
+```
+./mvnw install
+cd intellij && ./gradlew buildPlugin      # zip in intellij/build/distributions/
+```
+
+`./gradlew runIde` starts a sandbox IDE with the plugin for testing.
+
 ## Command line
 
 The same migration runs from a terminal with the CLI, a single jar that needs Java 17 or later
@@ -125,6 +142,7 @@ features/io.github.danieldefrancisco_lr.migrator.feature
 releng/io.github.danieldefrancisco_lr.migrator.target      Target platform (Eclipse 2024-12)
 releng/io.github.danieldefrancisco_lr.migrator.updatesite  p2 update site (category.xml)
 cli                                                   Command-line interface (runnable jar)
+intellij                                              IntelliJ Platform plugin (Gradle)
 testdata                                              Test fixtures, canned Gemini answers and goldens
 ```
 
