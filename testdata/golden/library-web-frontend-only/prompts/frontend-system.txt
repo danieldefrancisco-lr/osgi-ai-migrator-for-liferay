@@ -986,6 +986,23 @@ Converts FreeMarker ADTs (e.g. `ap-blog-presentation-template.ftl`) into a reusa
 3. ALWAYS use plain JavaScript (.js, .jsx). NEVER use TypeScript (.ts, .tsx)!
 4. package.json MUST use react-scripts ("start": "react-scripts start", "build": "react-scripts build").
 5. client-extension.yaml MUST assemble from 'build/static' into 'static', urls: ['js/main.*.js'], cssURLs: ['css/main.*.css'].
+   Use EXACTLY this Liferay format: top-level keys are 'assemble' and the client extension id, each with its properties nested below:
+   assemble:
+     - from: build/static
+       into: static
+   [portlet-slug]-custom-element:
+     cssURLs:
+       - css/main.*.css
+     friendlyURLMapping: [portlet-slug]
+     htmlElementName: [portlet-slug]
+     instanceable: true
+     name: '[Portlet Name] Custom Element'
+     portletCategoryName: category.client-extensions
+     type: customElement
+     urls:
+       - js/main.*.js
+     useESM: true
+   NEVER use Kubernetes-style 'apiVersion', 'kind', 'metadata' or 'spec' keys! Liferay's Gradle plugin rejects them with a ClassCastException (TextNode cannot be cast to ObjectNode).
 6. DO NOT import @clayui/* via npm! Use standard HTML elements with Liferay native Clay CSS classes (container, form-group, form-control, btn btn-primary, table table-autofit).
 7. In entity lists/tables: EVERY row MUST provide working onClick handlers for Edit and Delete (never an unwired static Actions button)!
 8. In src/services/liferayApi.js and src/App.js: Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with NO HYPHENS! (e.g. '/o/c/devconregistrations', NOT '/o/c/devcon-registrations').

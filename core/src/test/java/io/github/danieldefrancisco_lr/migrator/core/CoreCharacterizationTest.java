@@ -53,6 +53,12 @@ public class CoreCharacterizationTest {
         run("library-web-misplaced-fragment", "gradle-workspace", "modules/library/library-web", null, true, "misplaced-fragment");
     }
 
+    /** Gemini answers with a Kubernetes-style client-extension.yaml, which Raphael must flag. */
+    @Test
+    public void libraryWebKubernetesYaml() throws Exception {
+        run("library-web-kubernetes-yaml", "gradle-workspace", "modules/library/library-web", null, true, "kubernetes-yaml");
+    }
+
     @Test
     public void acmeTheme() throws Exception {
         run("acme-theme", "maven-workspace", "themes/acme-theme", null, false, "default");
@@ -99,9 +105,13 @@ public class CoreCharacterizationTest {
             } catch (Exception e) {
                 outcome = "Write Error\nFailed to write files: " + e.getMessage();
             }
-            String eclipseMessages = Files.readString(Golden.TESTDATA.resolve("golden/" + caseName + "/apply-messages.txt"), StandardCharsets.UTF_8);
-            String expectedOutcome = eclipseMessages.startsWith("Write Error") ? eclipseMessages.trim() : "Success";
-            assertEquals(expectedOutcome, golden.normalize(outcome).trim());
+            // apply-messages.txt is recorded by the Eclipse tests, which run after these; a new case has none yet
+            Path eclipseMessagesFile = Golden.TESTDATA.resolve("golden/" + caseName + "/apply-messages.txt");
+            if (Files.exists(eclipseMessagesFile)) {
+                String eclipseMessages = Files.readString(eclipseMessagesFile, StandardCharsets.UTF_8);
+                String expectedOutcome = eclipseMessages.startsWith("Write Error") ? eclipseMessages.trim() : "Success";
+                assertEquals(expectedOutcome, golden.normalize(outcome).trim());
+            }
             golden.check("output.txt", Dumps.newFiles(fixtureCopy, before));
         } finally {
             deleteTree(tmp);

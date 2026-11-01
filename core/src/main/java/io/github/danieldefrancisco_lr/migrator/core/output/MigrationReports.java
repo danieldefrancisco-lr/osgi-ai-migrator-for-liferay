@@ -75,6 +75,10 @@ public class MigrationReports {
                 } else if (content.contains("oAuthApplicationHeadlessServer")) {
                     warnings.add("OAuth block might be missing .serviceAddress: localhost:8080 or .serviceScheme: http");
                 }
+                if (content.startsWith("apiVersion:") || content.contains("\napiVersion:") ||
+                    content.startsWith("spec:") || content.contains("\nspec:")) {
+                    warnings.add(path + " uses a Kubernetes-style format (apiVersion/kind/metadata/spec). Liferay expects top-level 'assemble' and client extension id keys; 'blade gw build' fails with 'TextNode cannot be cast to ObjectNode'.");
+                }
             }
 
             if (path.endsWith(".batch-engine-data.json")) {

@@ -155,6 +155,23 @@ public class AgentOrchestrator {
                 "3. ALWAYS use plain JavaScript (.js, .jsx). NEVER use TypeScript (.ts, .tsx)!\n" +
                 "4. package.json MUST use react-scripts (\"start\": \"react-scripts start\", \"build\": \"react-scripts build\").\n" +
                 "5. client-extension.yaml MUST assemble from 'build/static' into 'static', urls: ['js/main.*.js'], cssURLs: ['css/main.*.css'].\n" +
+                "   Use EXACTLY this Liferay format: top-level keys are 'assemble' and the client extension id, each with its properties nested below:\n" +
+                "   assemble:\n" +
+                "     - from: build/static\n" +
+                "       into: static\n" +
+                "   [portlet-slug]-custom-element:\n" +
+                "     cssURLs:\n" +
+                "       - css/main.*.css\n" +
+                "     friendlyURLMapping: [portlet-slug]\n" +
+                "     htmlElementName: [portlet-slug]\n" +
+                "     instanceable: true\n" +
+                "     name: '[Portlet Name] Custom Element'\n" +
+                "     portletCategoryName: category.client-extensions\n" +
+                "     type: customElement\n" +
+                "     urls:\n" +
+                "       - js/main.*.js\n" +
+                "     useESM: true\n" +
+                "   NEVER use Kubernetes-style 'apiVersion', 'kind', 'metadata' or 'spec' keys! Liferay's Gradle plugin rejects them with a ClassCastException (TextNode cannot be cast to ObjectNode).\n" +
                 "6. DO NOT import @clayui/* via npm! Use standard HTML elements with Liferay native Clay CSS classes (container, form-group, form-control, btn btn-primary, table table-autofit).\n" +
                 "7. In entity lists/tables: EVERY row MUST provide working onClick handlers for Edit and Delete (never an unwired static Actions button)!\n" +
                 "8. In src/services/liferayApi.js and src/App.js: Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with NO HYPHENS! (e.g. '/o/c/devconregistrations', NOT '/o/c/devcon-registrations').\n" +

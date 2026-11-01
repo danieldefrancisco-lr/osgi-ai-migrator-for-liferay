@@ -64,6 +64,12 @@ public class CharacterizationTest {
         run("library-web-misplaced-fragment", "gradle-workspace", "modules/library/library-web", null, true, "misplaced-fragment");
     }
 
+    /** Gemini answers with a Kubernetes-style client-extension.yaml, which Raphael must flag. */
+    @Test
+    public void libraryWebKubernetesYaml() throws Exception {
+        run("library-web-kubernetes-yaml", "gradle-workspace", "modules/library/library-web", null, true, "kubernetes-yaml");
+    }
+
     @Test
     public void acmeTheme() throws Exception {
         run("acme-theme", "maven-workspace", "themes/acme-theme", null, false);
