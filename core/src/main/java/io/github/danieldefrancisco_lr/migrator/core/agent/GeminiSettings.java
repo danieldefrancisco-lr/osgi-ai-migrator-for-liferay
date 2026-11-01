@@ -12,6 +12,11 @@ public interface GeminiSettings {
     /** Secret setting such as the API key, or null/empty when not set. */
     String getSecret(String key);
 
+    /** Where the user changes these settings, used in error messages. */
+    default String configurationHint() {
+        return "Window -> Preferences -> OSGi AI Migrator for Liferay";
+    }
+
     // Auth Gateway Type
     String P_AUTH_TYPE = "geminiAuthType";
     String AUTH_TYPE_GCLOUD_ADC = "GCLOUD_ADC";

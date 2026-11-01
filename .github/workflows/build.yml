@@ -64,6 +64,12 @@ jobs:
           path: '**/target/golden-actual/'
           if-no-files-found: ignore
 
+      - name: Upload CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli
+          path: cli/target/osgi-ai-migrator-cli.jar
+
       - name: Add landing page
         run: cp releng/io.github.danieldefrancisco_lr.migrator.updatesite/index.html "$UPDATE_SITE/"
 

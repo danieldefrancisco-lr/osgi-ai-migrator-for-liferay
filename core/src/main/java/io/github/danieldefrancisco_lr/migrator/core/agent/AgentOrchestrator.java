@@ -244,7 +244,8 @@ public class AgentOrchestrator {
         return plan;
     }
 
-    private void parseGeneratedFiles(String rawOutput, Map<String, String> targetMap) {
+    /** Parses files delimited by '=== FILE: path ===' and '=== END FILE ===' into targetMap. */
+    public static void parseGeneratedFiles(String rawOutput, Map<String, String> targetMap) {
         String[] blocks = rawOutput.split("=== FILE: ");
         for (int i = 1; i < blocks.length; i++) {
             String block = blocks[i];

@@ -34,6 +34,36 @@ Or use *Help → Install New Software → Add…* and enter the update site URL:
 https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
 ```
 
+## Command line
+
+The same migration runs from a terminal with the CLI, a single jar that needs Java 17 or later
+(`osgi-ai-migrator-cli.jar`, built in `cli/target/`):
+
+```
+java -jar osgi-ai-migrator-cli.jar analyze path/to/legacy-module
+java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module                # review the plan and Raphael's checks
+java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --apply        # write into the Liferay workspace
+java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --save-plan plan.txt
+java -jar osgi-ai-migrator-cli.jar apply path/to/legacy-module --plan plan.txt  # write a reviewed plan
+```
+
+Other options: `--folder <path>` (one folder of the module), `--no-backend` (frontend only),
+`--workspace <dir>`, `--json` (machine-readable output). Run with `--help` for all of them.
+
+Gemini settings are resolved from the command line (`--auth`, `--model`, `--project`, `--region`,
+`--service-account`, `--temperature`, `--endpoint`), then the environment (`GEMINI_API_KEY`,
+`GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`), then
+`~/.osgi-ai-migrator/config.properties`, which uses the same keys as the Eclipse preferences:
+
+```
+geminiAuthType=AI_STUDIO
+geminiModel=gemini-2.5-flash
+geminiApiKey=...
+```
+
+Without settings it uses gcloud ADC (`gcloud auth login`). `java -jar osgi-ai-migrator-cli.jar config`
+shows the settings in effect and where each one comes from.
+
 ## Build
 
 Requires JDK 17+. Maven is downloaded by the wrapper (pinned to 3.9.11).
@@ -90,6 +120,7 @@ bundles/io.github.danieldefrancisco_lr.migrator.tests Eclipse characterization t
 features/io.github.danieldefrancisco_lr.migrator.feature
 releng/io.github.danieldefrancisco_lr.migrator.target      Target platform (Eclipse 2024-12)
 releng/io.github.danieldefrancisco_lr.migrator.updatesite  p2 update site (category.xml)
+cli                                                   Command-line interface (runnable jar)
 testdata                                              Test fixtures, canned Gemini answers and goldens
 ```
 

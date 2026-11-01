@@ -67,7 +67,7 @@ public class GeminiClient implements LlmClient {
                 projectId = GoogleAuthHelper.getGCloudActiveProject();
             }
             if (projectId == null || projectId.trim().isEmpty()) {
-                throw new IllegalStateException("GCP Project ID is not configured. Please set it in Window -> Preferences -> OSGi AI Migrator for Liferay, or run 'gcloud config set project <PROJECT_ID>'.");
+                throw new IllegalStateException("GCP Project ID is not configured. Please set it in " + settings.configurationHint() + ", or run 'gcloud config set project <PROJECT_ID>'.");
             }
 
             String region = settings.get(GeminiSettings.P_VERTEX_REGION);
@@ -85,7 +85,7 @@ public class GeminiClient implements LlmClient {
         else if (GeminiSettings.AUTH_TYPE_VERTEX_AI.equalsIgnoreCase(authType)) {
             String saPath = settings.get(GeminiSettings.P_SERVICE_ACCOUNT_FILE);
             if (saPath == null || saPath.trim().isEmpty()) {
-                throw new IllegalStateException("Vertex AI Service Account JSON file is not configured. Please set it in Window -> Preferences -> OSGi AI Migrator for Liferay.");
+                throw new IllegalStateException("Vertex AI Service Account JSON file is not configured. Please set it in " + settings.configurationHint() + ".");
             }
             File saFile = new File(saPath);
             if (!saFile.exists()) {
@@ -115,7 +115,7 @@ public class GeminiClient implements LlmClient {
         else {
             String apiKey = settings.getSecret(GeminiSettings.P_GEMINI_API_KEY);
             if (apiKey == null || apiKey.trim().isEmpty()) {
-                throw new IllegalStateException("Gemini API Key is not configured. Please set it in Window -> Preferences -> OSGi AI Migrator for Liferay.");
+                throw new IllegalStateException("Gemini API Key is not configured. Please set it in " + settings.configurationHint() + ".");
             }
 
             String endpoint = settings.get(GeminiSettings.P_GEMINI_ENDPOINT);
