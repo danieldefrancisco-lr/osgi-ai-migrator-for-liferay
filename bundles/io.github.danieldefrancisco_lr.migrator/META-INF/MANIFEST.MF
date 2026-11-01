@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: OSGi AI Migrator for Liferay
 Bundle-SymbolicName: io.github.danieldefrancisco_lr.migrator;singleton:=true
-Bundle-Version: 2.0.0.qualifier
+Bundle-Version: 3.0.0.qualifier
 Bundle-Activator: io.github.danieldefrancisco_lr.migrator.Activator
 Bundle-Vendor: Daniel de Francisco
 Require-Bundle: org.eclipse.ui,

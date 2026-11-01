@@ -8,8 +8,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Coordinates Donatello, Leonardo, Michelangelo, and Raphael to execute the migration via Gemini.
@@ -45,7 +48,8 @@ public class AgentOrchestrator {
         legacyContext.append("Entities Detected: ").append(String.join(", ", analysis.detectedEntities)).append("\n");
         legacyContext.append("Portlets Detected: ").append(String.join(", ", analysis.detectedPortlets)).append("\n");
         legacyContext.append("Listeners Detected: ").append(String.join(", ", analysis.detectedListeners)).append("\n");
-        legacyContext.append("Schedulers Detected: ").append(String.join(", ", analysis.detectedSchedulers)).append("\n\n");
+        legacyContext.append("Schedulers Detected: ").append(String.join(", ", analysis.detectedSchedulers)).append("\n");
+        legacyContext.append("Notifications Detected: ").append(String.join(", ", analysis.detectedNotifications)).append("\n\n");
 
         for (Map.Entry<String, String> entry : analysis.rawSourceExtracts.entrySet()) {
             legacyContext.append("--- File: ").append(entry.getKey()).append(" ---\n");
@@ -87,70 +91,111 @@ public class AgentOrchestrator {
         }
         plan.architectureBlueprint = blueprint;
 
-        // 4. Invoke Michelangelo (Coder)
-        String michelangeloSystemInstruction = "You are Michelangelo, the Senior Coder agent specialized in Liferay Client Extensions and Batch Engine data definitions.\n" +
-            "Follow the generation rules below:\n\n" + generationPlaybook + "\n\n" +
-            "### CANONICAL BATCH OBJECT TEMPLATE:\n" + batchTemplate + "\n\n" +
-            "### STRICT DIRECTORY & FILE NAMING RULES:\n" +
-            "1. EVERY generated file MUST start with the client extension directory: 'client-extensions/<name>/...'\n" +
-            "2. For Service Builder entities, generate a BATCH CLIENT EXTENSION:\n" +
-            "   - client-extensions/[entity-slug]-object/client-extension.yaml\n" +
-            "   - client-extensions/[entity-slug]-object/batch/01-00-folder-definition.batch-engine-data.json\n" +
-            "   - client-extensions/[entity-slug]-object/batch/01-01-[entity-slug]-definition.batch-engine-data.json\n" +
-            "   DO NOT generate package.json or src/index.js for Batch Client Extensions!\n" +
-            "3. For JSP Portlets, generate a standard REACT JAVASCRIPT CUSTOM ELEMENT CLIENT EXTENSION:\n" +
-            "   - ALWAYS use plain JavaScript (.js, .jsx). NEVER use TypeScript (.ts, .tsx)!\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/client-extension.yaml (assemble from 'build/static' into 'static', urls: ['js/main.*.js'], cssURLs: ['css/main.*.css'])\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/package.json (MUST use react-scripts: \"start\": \"react-scripts start\", \"build\": \"react-scripts build\")\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/public/index.html (HTML5 shell)\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/src/index.js (Web component wrapper)\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/src/App.js\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/src/index.css\n" +
-            "   - client-extensions/[portlet-slug]-custom-element/src/services/liferayApi.js\n" +
-            "4. FRAGMENTS ARE NEVER CLIENT EXTENSIONS:\n" +
-            "   - Liferay does NOT have a client extension type for fragments!\n" +
-            "   - If generating Page Fragments (e.g. for card views or replacing ADTs), place them in 'fragments/[collection-slug]/':\n" +
-            "     * fragments/[collection-slug]/collection.json (with name and description)\n" +
-            "     * fragments/[collection-slug]/[fragment-slug]/fragment.json (MUST ALWAYS include 'fragmentEntryKey': '[unique-slug]', 'name': '...', 'type': 'component', 'htmlPath': 'index.html', 'cssPath': 'index.css', 'jsPath': 'index.js')\n" +
-            "     * fragments/[collection-slug]/[fragment-slug]/index.html\n" +
-            "     * fragments/[collection-slug]/[fragment-slug]/index.css\n" +
-            "   - NEVER put fragments inside 'client-extensions/' and NEVER create client-extension.yaml for fragments!\n" +
-            "5. Canonical client-extension.yaml for Batch:\n" +
-            "   assemble:\n" +
-            "     - from: batch\n" +
-            "       into: batch\n" +
-            "   [slug]-batch:\n" +
-            "     name: '[Entity Name] Object Initialization'\n" +
-            "     type: batch\n" +
-            "     oAuthApplicationHeadlessServer: [slug]-oauth\n" +
-            "   [slug]-oauth:\n" +
-            "     .serviceAddress: localhost:8080\n" +
-            "     .serviceScheme: http\n" +
-            "     name: '[Entity Name] OAuth Headless Server'\n" +
-            "     scopes:\n" +
-            "       - Liferay.Headless.Batch.Engine.everything\n" +
-            "       - Liferay.Object.Admin.REST.everything\n" +
-            "     type: oAuthApplicationHeadlessServer\n" +
-            "6. React JavaScript package.json & Clay CSS rules:\n" +
-            "   - package.json MUST use react-scripts:\n" +
-            "     \"dependencies\": { \"react\": \"^18.2.0\", \"react-dom\": \"^18.2.0\", \"react-scripts\": \"5.0.1\" },\n" +
-            "     \"scripts\": { \"start\": \"react-scripts start\", \"build\": \"react-scripts build\" }\n" +
-            "   - DO NOT import @clayui/layout, @clayui/form, @clayui/date-picker, or @clayui/button via npm packages! They cause missing export build errors!\n" +
-            "   - Style UI using standard HTML elements with Liferay's native Clay CSS / Bootstrap classes: <div className=\"container\">, <div className=\"form-group\">, <input className=\"form-control\" />, <button className=\"btn btn-primary\">, <table className=\"table table-autofit\">\n" +
-            "   - In entity tables/lists: NEVER output an unwired static 'Actions' button! Every row MUST have working onClick handlers for Edit (e.g. onEdit(item)) and Delete (e.g. onDelete(item.id)).\n";
+        // 4. Invoke Michelangelo (Coder) via Parallel Workers (Strategy A)
+        boolean needBackend = generateBackendObjects && (!analysis.detectedEntities.isEmpty() || analysis.hasServiceBuilder);
+        boolean needFrontend = analysis.hasJspPortlet || !analysis.detectedPortlets.isEmpty();
 
-        String michelangeloPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy files for the client extension.\n" +
-            "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +
-            "Blueprint:\n" + blueprint + "\n\n" +
-            "Legacy Context:\n" + legacyContext.toString();
-
-        String rawGeneratedOutput;
-        try {
-            rawGeneratedOutput = geminiClient.generateContent(michelangeloSystemInstruction, michelangeloPrompt);
-        } catch (Exception e) {
-            throw new RuntimeException("[Phase 2 - Michelangelo Code Generation]: " + e.getMessage(), e);
+        // Fallback: If neither was strictly flagged, run both so nothing is missed
+        if (!needBackend && !needFrontend) {
+            needBackend = generateBackendObjects;
+            needFrontend = true;
         }
-        parseGeneratedFiles(rawGeneratedOutput, plan.generatedFiles);
+
+        CompletableFuture<String> backendFuture = null;
+        CompletableFuture<String> frontendFuture = null;
+
+        if (needBackend) {
+            String backendInstruction = "You are Michelangelo (Backend Specialist), specialized in Liferay Batch Client Extensions, Object Folders, Object Definitions, and Picklists.\n" +
+                "Follow the generation playbook rules below:\n\n" + generationPlaybook + "\n\n" +
+                "### CANONICAL BATCH OBJECT TEMPLATE:\n" + batchTemplate + "\n\n" +
+                "### STRICT BACKEND RULES:\n" +
+                "1. Generate ONLY Batch Client Extension files under 'client-extensions/[entity-slug]-object/':\n" +
+                "   - client-extensions/[entity-slug]-object/client-extension.yaml\n" +
+                "   - client-extensions/[entity-slug]-object/batch/01-00-folder-definition.batch-engine-data.json\n" +
+                "   - client-extensions/[entity-slug]-object/batch/01-01-[entity-slug]-picklists.batch-engine-data.json (if select/dropdown fields exist)\n" +
+                "   - client-extensions/[entity-slug]-object/batch/01-02-[entity-slug]-definition.batch-engine-data.json\n" +
+                "   DO NOT generate separate batch files for validations or actions! All field constraints (required, unique) belong directly on objectFields inside 01-02, and notifications are configured via Liferay Control Panel per MIGRATION.md!\n" +
+                "2. DO NOT generate package.json, React components, or frontend files in this call!\n" +
+                "3. In 01-00-folder-definition: 'name' MUST be alphanumeric with NO SPACES (e.g. 'DevconMigrationObjects').\n" +
+                "4. NEVER include reserved system field names ('status', 'id', 'companyId', 'groupId', 'userId', 'userName', 'createDate', 'modifiedDate', 'uuid') in objectFields!\n" +
+                "5. NEVER include 'objectLayouts' or 'objectViews' inside ObjectDefinition items! Liferay creates layouts automatically.\n" +
+                "6. NEVER add inline 'options' inside objectFieldSettings! For dropdowns/select fields, generate a Picklist in 01-01 and reference it via 'listTypeDefinitionExternalReferenceCode'!\n" +
+                "7. In Picklist listTypeEntries: 'key' MUST be alphanumeric with NO spaces, underscores, or hyphens (e.g. 'inPerson', 'M').\n" +
+                "8. In client-extension.yaml, include scopes: Liferay.Headless.Batch.Engine.everything, Liferay.Object.Admin.REST.everything, Liferay.Headless.Admin.List.Type.everything.\n";
+
+            String backendPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy Batch Client Extension files.\n" +
+                "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +
+                "Blueprint:\n" + blueprint + "\n\n" +
+                "Legacy Context:\n" + legacyContext.toString();
+
+            backendFuture = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return geminiClient.generateContent(backendInstruction, backendPrompt);
+                } catch (Exception e) {
+                    throw new RuntimeException("[Michelangelo Backend Worker]: " + e.getMessage(), e);
+                }
+            });
+        }
+
+        if (needFrontend) {
+            String frontendInstruction = "You are Michelangelo (Frontend Specialist), specialized in Liferay React Custom Element Client Extensions and Page Fragments.\n" +
+                "Follow the generation playbook rules below:\n\n" + generationPlaybook + "\n\n" +
+                "### STRICT FRONTEND RULES:\n" +
+                "1. Generate ONLY React JavaScript Custom Element files under 'client-extensions/[portlet-slug]-custom-element/' (and Page Fragments under 'fragments/[collection-slug]/' if blueprinted):\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/client-extension.yaml\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/package.json\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/public/index.html\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/src/index.js\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/src/App.js\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/src/index.css\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/src/components/Form.js (or RegistrationForm.js)\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/src/components/ListView.js (or ConfirmationView.js)\n" +
+                "   - client-extensions/[portlet-slug]-custom-element/src/services/liferayApi.js\n" +
+                "2. DO NOT generate batch JSON files or Object definitions in this call!\n" +
+                "3. ALWAYS use plain JavaScript (.js, .jsx). NEVER use TypeScript (.ts, .tsx)!\n" +
+                "4. package.json MUST use react-scripts (\"start\": \"react-scripts start\", \"build\": \"react-scripts build\").\n" +
+                "5. client-extension.yaml MUST assemble from 'build/static' into 'static', urls: ['js/main.*.js'], cssURLs: ['css/main.*.css'].\n" +
+                "6. DO NOT import @clayui/* via npm! Use standard HTML elements with Liferay native Clay CSS classes (container, form-group, form-control, btn btn-primary, table table-autofit).\n" +
+                "7. In entity lists/tables: EVERY row MUST provide working onClick handlers for Edit and Delete (never an unwired static Actions button)!\n" +
+                "8. In src/services/liferayApi.js and src/App.js: Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with NO HYPHENS! (e.g. '/o/c/devconregistrations', NOT '/o/c/devcon-registrations').\n" +
+                "9. In src/services/liferayApi.js: Always use normalizeUrl(path) and merge 'Content-Type': 'application/json' and 'Accept': 'application/json'.\n" +
+                "10. If generating Page Fragments, put them in 'fragments/[collection-slug]/': collection.json, [fragment-slug]/fragment.json (with 'fragmentEntryKey'), index.html, index.css. Never in 'client-extensions/'!\n" +
+                "11. In React form state and API payloads: NEVER include 'status' (e.g. status: 0)! In Liferay Objects, status is a system-managed workflow state. Sending 'status' in POST/PUT causes 'Unable to map JSON path: status' HTTP 400 error! In liferayApi.js, createObjectEntry and updateObjectEntry MUST defensively strip 'status', 'id', 'creator', 'dateCreated', and 'dateModified' before sending!\n" +
+                "12. In React dropdowns (<select>) and radio options: Option values MUST MATCH Picklist entry keys EXACTLY! In Liferay, Picklist keys are alphanumeric (e.g. 'INPERSON', 'VIRTUAL', 'S', 'M'). NEVER use underscores like 'IN_PERSON' if the Picklist key is 'INPERSON', or Liferay will reject with 'not mapped to a valid list type entry'!\n";
+
+            String frontendPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy React Custom Element files.\n" +
+                "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +
+                "Blueprint:\n" + blueprint + "\n\n" +
+                "Legacy Context:\n" + legacyContext.toString();
+
+            frontendFuture = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return geminiClient.generateContent(frontendInstruction, frontendPrompt);
+                } catch (Exception e) {
+                    throw new RuntimeException("[Michelangelo Frontend Worker]: " + e.getMessage(), e);
+                }
+            });
+        }
+
+        // Wait for all active workers to complete concurrently
+        List<CompletableFuture<String>> futures = new ArrayList<>();
+        if (backendFuture != null) futures.add(backendFuture);
+        if (frontendFuture != null) futures.add(frontendFuture);
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            throw new RuntimeException("[Phase 2 - Parallel Code Generation]: " + cause.getMessage(), cause);
+        }
+
+        // Merge generated files from all workers
+        if (backendFuture != null) {
+            parseGeneratedFiles(backendFuture.join(), plan.generatedFiles);
+        }
+        if (frontendFuture != null) {
+            parseGeneratedFiles(frontendFuture.join(), plan.generatedFiles);
+        }
 
         return plan;
     }

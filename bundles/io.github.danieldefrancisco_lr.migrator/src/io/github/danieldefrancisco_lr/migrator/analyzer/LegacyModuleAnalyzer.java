@@ -35,6 +35,7 @@ public class LegacyModuleAnalyzer {
         public List<String> detectedPortlets = new ArrayList<>();
         public List<String> detectedListeners = new ArrayList<>();
         public List<String> detectedSchedulers = new ArrayList<>();
+        public List<String> detectedNotifications = new ArrayList<>();
         public Map<String, String> rawSourceExtracts = new HashMap<>();
     }
 
@@ -82,6 +83,13 @@ public class LegacyModuleAnalyzer {
                         }
                         // Detect referenced model entities from imports (e.g. import ...model.Assignment;)
                         extractModelImports(content, result.detectedEntities);
+
+                        // Detect legacy mail or user notifications
+                        if (content.contains("MailServiceUtil") || content.contains("MailMessage") ||
+                            content.contains("MailEngine") || content.contains("UserNotificationEventLocalService")) {
+                            result.detectedNotifications.add(fileName);
+                            result.rawSourceExtracts.put("java:notification:" + fileName, content);
+                        }
 
                         if (content.contains("ModelListener") || content.contains("BaseModelListener")) {
                             result.detectedListeners.add(fileName);
@@ -242,7 +250,10 @@ public class LegacyModuleAnalyzer {
                 String fullClassName = trimmed.substring(7, trimmed.length() - 1).trim();
                 String simpleName = fullClassName.substring(fullClassName.lastIndexOf('.') + 1);
                 if (!simpleName.isEmpty() && !simpleName.endsWith("Model") && !simpleName.endsWith("Wrapper") &&
-                    !simpleName.endsWith("Soap") && !simpleName.startsWith("Base") && !entities.contains(simpleName)) {
+                    !simpleName.endsWith("Soap") && !simpleName.startsWith("Base") &&
+                    !simpleName.equals("MailMessage") && !simpleName.equals("InternetAddress") &&
+                    !simpleName.equals("MailService") && !simpleName.endsWith("Message") &&
+                    !entities.contains(simpleName)) {
                     entities.add(simpleName);
                 }
             }

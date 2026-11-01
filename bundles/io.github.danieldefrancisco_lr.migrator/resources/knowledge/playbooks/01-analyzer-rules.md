@@ -143,6 +143,17 @@ Scan the module for specific OSGi component interfaces:
 - Detect usage of `ExpandoBridge`, `ExpandoTableLocalService`, or `ExpandoValueLocalService`.
 - Extract target entity and custom attribute names.
 
+### 4.7 Legacy Email & Notification Triggers (`MailServiceUtil` / `UserNotificationEventLocalService`)
+- Detect usage of:
+  - `MailServiceUtil.sendEmail(mailMessage)` or `MailEngine.send(...)`
+  - `UserNotificationEventLocalServiceUtil.addUserNotificationEvent(...)`
+  - Direct mail transport objects (`javax.mail.internet.InternetAddress`, `MailMessage`).
+- **CRITICAL ENTITY FILTER:** `MailMessage`, `InternetAddress`, and `MailService` are transport utilities and MUST NOT be classified as data model entities (`detectedEntities`)!
+- Extract:
+  - Recipient email fields (e.g. `emailAddress`, `to`).
+  - Triggering context (e.g. inside `MVCActionCommand` on form submit, or `ModelListener.onAfterCreate`).
+  - Intended notification purpose (e.g. registration confirmation, status alert).
+
 ---
 
 ## 5. UI Layer (`*Portlet.java` & JSPs) Extraction Rules

@@ -149,14 +149,87 @@ assemble:
 
 ### 2.5 Strict Rules for Batch JSON Generation
 1. **Status Code**: `"status": {"code": 0, "label": "approved"}` is mandatory. Without this, the object is created in `draft` status and cannot receive entries or be used in UI without manual admin approval.
-2. **Date vs DateTime Fields**:
+2. **Object Folder Naming**: In `01-00-folder-definition.batch-engine-data.json`, `"name"` MUST contain **only letters and digits with NO SPACES** (e.g. `"name": "DevconMigrationObjects"` or `"name": "MigrationObjects"`). Spaces cause `java.lang.Exception: Name must only contain letters and digits` and immediately abort the batch engine. (Spaces are only allowed in `"label": {"en_US": "Devcon Migration Objects"}`).
+3. **Reserved Field Names**: **NEVER** include Liferay's built-in reserved system fields in `objectFields`:
+   - `"status"` (Liferay Objects automatically manages workflow status)
+   - `"id"` (managed automatically as the primary key)
+   - `"companyId"`, `"groupId"`, `"userId"`, `"userName"` (managed automatically as audit fields)
+   - `"createDate"`, `"modifiedDate"` (managed automatically)
+   - `"externalReferenceCode"`, `"uuid"`
+   Including `"status"` causes `java.lang.Exception: Reserved name status` and rejects deployment!
+4. **Field Settings Constraints**:
    - **`DateTime` (with time/timestamp)**: MUST include `"objectFieldSettings": [{"name": "timeStorage", "value": "convertToUTC"}]`.
    - **`Date` (pure date without time)**: `"objectFieldSettings": []`. **NEVER** add `timeStorage` to a `Date` field (throws `ObjectFieldSettingNameException: The settings timeStorage are not allowed for object field [name]`).
-3. **No `objectValidations` inside `ObjectDefinition`**: `ObjectDefinition` does NOT have an `objectValidations` field (throws `NoSuchFieldException: [objectValidations]`). Validations are handled via separate `ObjectValidationRule` DTOs or configured in Liferay UI.
-4. **No `localized` property inside `ObjectField`**: Localization is an object-level toggle (`"enableLocalization": true/false`). Individual fields must NOT contain `"localized": true/false`!
-5. **No `indexedLanguageId` on Non-Strings**: Only `String` and `Clob` fields may have `indexedLanguageId`.
-6. **No `permissions` block**: Permissions cannot be set inside the batch object definition schema.
-7. **No System Audit Fields**: Do not include `companyId`, `groupId`, `userId`, `createDate`, `modifiedDate`, etc. Liferay creates them automatically!
+   - **`Text` fields**: **NEVER** add `"options"` setting to `Text` fields (throws `ObjectFieldSettingNameException: The settings options are not allowed for object field [name]`).
+5. **No `objectValidations` inside `ObjectDefinition`**: `ObjectDefinition` does NOT have an `objectValidations` field (throws `NoSuchFieldException: [objectValidations]`). Validations belong in separate `01-02-[slug]-validations.batch-engine-data.json` using `com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule`.
+6. **No `localized` property inside `ObjectField`**: Localization is an object-level toggle (`"enableLocalization": true/false`). Individual fields must NOT contain `"localized": true/false`!
+7. **No `indexedLanguageId` on Non-Strings**: Only `String` and `Clob` fields may have `indexedLanguageId`.
+8. **No `permissions` block**: Permissions cannot be set inside the batch object definition schema.
+9. **No `objectLayouts` or `objectViews` inside `ObjectDefinition`**: Liferay automatically generates default layouts and views with all fields upon publication. Embedding `objectLayouts` or `objectViews` breaks Jackson deserialization (`Unrecognized field "label"`). Always omit `objectLayouts` and `objectViews` or set them to empty `[]`.
+10. **Picklist (`ListTypeDefinition`) Mapping**: When dropdown or select options are detected in the origin (e.g. `<aui:select>`, radio options, enums), generate a separate Picklist batch file `batch/01-01-[entity]-picklists.batch-engine-data.json` using `com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition` alphabetically **BEFORE** the Object Definition! In the Object Definition, map the field with `"businessType": "Picklist"` and link it via `"listTypeDefinitionExternalReferenceCode": "PL_[NAME]"`. **NEVER** put inline `"options"` in `objectFieldSettings`!
+
+### 2.6 Picklist (`ListTypeDefinition`) Specification (`batch/01-01-[entity]-picklists.batch-engine-data.json`)
+```json
+{
+  "configuration": {
+    "className": "com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition",
+    "parameters": {
+      "createStrategy": "UPSERT",
+      "updateStrategy": "UPDATE"
+    }
+  },
+  "items": [
+    {
+      "name": "Ticket Types",
+      "name_i18n": {
+        "en-US": "Ticket Types"
+      },
+      "externalReferenceCode": "PL_DEVCON_TICKET_TYPES",
+      "status": {
+        "code": 0,
+        "label": "approved"
+      },
+      "listTypeEntries": [
+        {
+          "key": "inPerson",
+          "name": "In-Person",
+          "name_i18n": { "en-US": "In-Person" },
+          "externalReferenceCode": "PL_ENTRY_TICKET_IN_PERSON",
+          "status": { "code": 0, "label": "approved" },
+          "type": ""
+        },
+        {
+          "key": "virtual",
+          "name": "Virtual",
+          "name_i18n": { "en-US": "Virtual" },
+          "externalReferenceCode": "PL_ENTRY_TICKET_VIRTUAL",
+          "status": { "code": 0, "label": "approved" },
+          "type": ""
+        }
+      ]
+    }
+  ]
+}
+```
+*Key Validation Rule:* In `listTypeEntries`, `"key"` MUST be alphanumeric with **NO spaces, underscores, or hyphens** (e.g. `inPerson`, `M`, `standard`). Underscores cause `Key must only contain letters and digits` batch exception!
+
+*React Form Value Consistency Rule:* In the generated React form (`Form.js` / `App.js`), `<select>` options and `<input type="radio">` values **MUST MATCH the Picklist entry keys EXACTLY**! For example, if the Picklist key is `"INPERSON"`, the radio button MUST have `value="INPERSON"` (NOT `value="IN_PERSON"`). Sending a value with underscores causes Liferay REST API to reject the submission with `Object field name [field] is not mapped to a valid list type entry`!
+
+### 2.7 Canonical Batch Engine Files & OAuth Scopes
+Because Liferay Batch Engine processes files **alphabetically**, Michelangelo generates the canonical Batch Client Extension files:
+1. `01-00-folder-definition.batch-engine-data.json` (Object Folder - creates organization folder)
+2. `01-01-[entity]-picklists.batch-engine-data.json` (ListTypeDefinition - executed first so picklists exist)
+3. `01-02-[entity]-definition.batch-engine-data.json` (ObjectDefinition - fields, required constraints, picklist links)
+
+*Note on Validations & Actions:* Do NOT generate separate batch files for validations or actions. Field constraints (e.g. required, unique) belong directly on `objectFields` inside `01-02`, form validations are handled in React, and email notifications are configured via Liferay Control Panel following `MIGRATION.md`!
+
+In `client-extension.yaml`, always declare all required headless scopes:
+```yaml
+scopes:
+  - Liferay.Headless.Batch.Engine.everything
+  - Liferay.Object.Admin.REST.everything
+  - Liferay.Headless.Admin.List.Type.everything
+```
 
 ---
 
@@ -297,8 +370,23 @@ Liferay's portal theme **already loads Clay CSS & Bootstrap styles natively on t
   - Badges & Alerts: `<span className="badge badge-success">Active</span>`, `<div className="alert alert-info">Message</div>`
 
 ### 3.7 CSRF-Safe API Service (`src/services/liferayApi.js`)
+*REST Endpoint Naming Rule:* Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with **NO HYPHENS**! For example, entity `DevconRegistration` has endpoint `/o/c/devconregistrations` (NOT `/o/c/devcon-registrations`). Always compute the endpoint by lowercasing the plural entity name and stripping all hyphens and spaces!
+
 ```javascript
 /* global Liferay */
+
+function normalizeUrl(path) {
+  let cleaned = (path || '').trim();
+  if (cleaned.endsWith('/')) {
+    cleaned = cleaned.substring(0, cleaned.length - 1);
+  }
+  if (cleaned.startsWith('/o/c/')) {
+    const slug = cleaned.substring(5).replace(/-/g, '');
+    return `/o/c/${slug}`;
+  }
+  const slug = (cleaned.startsWith('/') ? cleaned.substring(1) : cleaned).replace(/-/g, '');
+  return `/o/c/${slug}`;
+}
 
 export async function fetchWithAuth(url, options = {}) {
   const defaultHeaders = {
@@ -321,8 +409,9 @@ export async function fetchWithAuth(url, options = {}) {
   return fetch(url, mergedOptions);
 }
 
-export async function getObjectEntries(objectContextPath, filter = '') {
-  let url = `${objectContextPath}?pageSize=20`;
+export async function getObjectEntries(objectContextPath, filter = '', pageSize = 20, page = 1) {
+  const basePath = normalizeUrl(objectContextPath);
+  let url = `${basePath}?pageSize=${pageSize}&page=${page}`;
   if (filter) {
     url += `&filter=${encodeURIComponent(filter)}`;
   }
@@ -331,13 +420,47 @@ export async function getObjectEntries(objectContextPath, filter = '') {
   return res.json();
 }
 
+export async function getObjectEntry(objectContextPath, id) {
+  const basePath = normalizeUrl(objectContextPath);
+  const url = `${basePath}/${id}`;
+  const res = await fetchWithAuth(url);
+  if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+  return res.json();
+}
+
 export async function createObjectEntry(objectContextPath, payload) {
-  const res = await fetchWithAuth(objectContextPath, {
+  const basePath = normalizeUrl(objectContextPath);
+  // Defensively strip read-only workflow & system audit fields
+  const { status, id, creator, dateCreated, dateModified, ...cleanPayload } = payload || {};
+  const res = await fetchWithAuth(basePath, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(cleanPayload),
   });
   if (!res.ok) throw new Error(`Failed to create entry: ${res.status}`);
   return res.json();
+}
+
+export async function updateObjectEntry(objectContextPath, id, payload) {
+  const basePath = normalizeUrl(objectContextPath);
+  // Defensively strip read-only workflow & system audit fields
+  const { status, id: ignoredId, creator, dateCreated, dateModified, ...cleanPayload } = payload || {};
+  const url = `${basePath}/${id}`;
+  const res = await fetchWithAuth(url, {
+    method: 'PUT',
+    body: JSON.stringify(cleanPayload),
+  });
+  if (!res.ok) throw new Error(`Failed to update entry: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteObjectEntry(objectContextPath, id) {
+  const basePath = normalizeUrl(objectContextPath);
+  const url = `${basePath}/${id}`;
+  const res = await fetchWithAuth(url, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Failed to delete entry: ${res.status}`);
+  return res.status === 204;
 }
 ```
 

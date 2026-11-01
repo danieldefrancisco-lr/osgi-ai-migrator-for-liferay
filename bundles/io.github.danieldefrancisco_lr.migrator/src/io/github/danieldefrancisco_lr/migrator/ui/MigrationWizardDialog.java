@@ -155,7 +155,8 @@ public class MigrationWizardDialog extends TitleAreaDialog {
 
         sb.append("3. OSGI EVENT LISTENERS & LOGIC:\n");
         sb.append("   - Model Listeners Detected (").append(analysisResult.detectedListeners.size()).append("): ").append(String.join(", ", analysisResult.detectedListeners)).append("\n");
-        sb.append("   - Schedulers Detected (").append(analysisResult.detectedSchedulers.size()).append("): ").append(String.join(", ", analysisResult.detectedSchedulers)).append("\n\n");
+        sb.append("   - Schedulers Detected (").append(analysisResult.detectedSchedulers.size()).append("): ").append(String.join(", ", analysisResult.detectedSchedulers)).append("\n");
+        sb.append("   - Email/Notifications Detected (").append(analysisResult.detectedNotifications.size()).append("): ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n\n");
 
         sb.append("4. THEMES & LOOK AND FEEL:\n");
         sb.append("   - Has Theme Artifacts: ").append(analysisResult.hasTheme ? "YES" : "NO").append("\n\n");
@@ -203,19 +204,21 @@ public class MigrationWizardDialog extends TitleAreaDialog {
                 if (content.contains("\"status\": {\"code\": 0") || content.contains("\"code\": 0")) {
                     hasApprovedStatus = true;
                 }
-                if (content.contains("\"timeStorage\": \"convertToUTC\"") || content.contains("convertToUTC")) {
-                    hasUtcTimeStorage = true;
-                }
                 if (content.contains("\"companyId\"") || content.contains("\"createDate\"") || content.contains("\"modifiedDate\"")) {
                     warnings.add("System audit fields (companyId/createDate) detected inside objectFields; recommend removing them.");
+                }
+                if (content.contains("\"objectValidations\"") || content.contains("\"objectValidationRules\"")) {
+                    warnings.add("Invalid 'objectValidations' or 'objectValidationRules' detected inside ObjectDefinition DTO. This causes NoSuchFieldException!");
+                }
+                if (content.contains("\"localized\":")) {
+                    warnings.add("Property 'localized' detected inside ObjectField item. Liferay ObjectField does not accept 'localized'; use root 'enableLocalization' instead.");
                 }
             }
         }
 
         if (hasYaml) passes.add("Canonical client-extension.yaml present");
-        if (hasBatch) passes.add("Batch Client Extension definition present");
+        if (hasBatch) passes.add("Batch Client Extension definition present (Liferay 7.4+ schema)");
         if (hasApprovedStatus) passes.add("Object Definition pre-approved (status.code: 0)");
-        if (hasUtcTimeStorage) passes.add("Date fields configured with UTC timeStorage (convertToUTC)");
 
         sb.append("PRE-FLIGHT CHECKS:\n");
         for (String p : passes) {
@@ -268,6 +271,24 @@ public class MigrationWizardDialog extends TitleAreaDialog {
         sb.append("   - Navigate to: Site Administration -> Design -> Page Templates -> Display Page Templates\n");
         sb.append("   - Click 'Add' -> Select your Object definition as the Content Type\n");
         sb.append("   - Design the detail view using Page Fragments and visually map title, description, and date fields.\n");
+
+        if (!analysisResult.detectedNotifications.isEmpty()) {
+            sb.append("\n6. NOTIFICATION TEMPLATE & OBJECT ACTION SETUP (REPLACING LEGACY MAILSERVICE):\n");
+            sb.append("   - Legacy email sending detected in: ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n");
+            sb.append("   - Modern Liferay replaces hardcoded Java MailService with Native Notification Templates & Object Actions:\n");
+            sb.append("     a) In Liferay: Control Panel -> Notifications -> Notification Templates\n");
+            sb.append("     b) Click (+) Add -> select 'Email'\n");
+            sb.append("        - Name: '").append(analysisResult.moduleName).append(" Confirmation Email'\n");
+            sb.append("        - Subject: Your Registration is Confirmed!\n");
+            sb.append("        - Body: Design using object tokens e.g. [%FIRSTNAME%], [%EMAILADDRESS%]\n");
+            sb.append("     c) In Liferay: Control Panel -> Objects -> [Your Object] -> Actions tab\n");
+            sb.append("     d) Click (+) Add Action:\n");
+            sb.append("        - Action Label: 'Send Confirmation Email'\n");
+            sb.append("        - Trigger: 'On After Add' (fires automatically when Custom Element creates entry)\n");
+            sb.append("        - Action: 'Notification'\n");
+            sb.append("        - Template: Select your created template\n");
+            sb.append("        - Recipient: Select the recipient field (e.g. 'emailAddress')\n");
+        }
 
         return sb.toString();
     }
@@ -400,6 +421,14 @@ public class MigrationWizardDialog extends TitleAreaDialog {
             for (Map.Entry<String, String> entry : currentPlan.generatedFiles.entrySet()) {
                 String relativePath = entry.getKey().trim();
 
+                // Skip standalone validation/action batch files to keep Batch CX 100% clean and prevent Jackson deserialization crashes
+                if (relativePath.endsWith("-validations.batch-engine-data.json") ||
+                    relativePath.endsWith("-actions.batch-engine-data.json") ||
+                    relativePath.endsWith("-notification-template.batch-engine-data.json") ||
+                    relativePath.endsWith("-template.batch-engine-data.json")) {
+                    continue;
+                }
+
                 // Re-route fragments mistakenly prefixed with client-extensions/
                 if (relativePath.startsWith("client-extensions/") &&
                     (relativePath.contains("-fragments/") || relativePath.contains("/collection.json") || relativePath.contains("/fragment.json"))) {
@@ -431,7 +460,13 @@ public class MigrationWizardDialog extends TitleAreaDialog {
 
                 Path targetPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), relativePath);
                 Files.createDirectories(targetPath.getParent());
-                Files.writeString(targetPath, entry.getValue());
+
+                String fileContent = entry.getValue();
+                if (relativePath.endsWith(".batch-engine-data.json")) {
+                    fileContent = sanitizeBatchJson(fileContent);
+                }
+
+                Files.writeString(targetPath, fileContent);
             }
 
             // Automatically zip fragment collections for 1-click import into Liferay
@@ -534,5 +569,209 @@ public class MigrationWizardDialog extends TitleAreaDialog {
                     } catch (Exception ignored) {}
                 });
         } catch (Exception ignored) {}
+    }
+
+    private static String sanitizeBatchJson(String content) {
+        String sanitized = content;
+
+        // 1. Strip objectLayouts if populated
+        int layoutIdx = sanitized.indexOf("\"objectLayouts\"");
+        if (layoutIdx != -1) {
+            int bracketStart = sanitized.indexOf("[", layoutIdx);
+            if (bracketStart != -1) {
+                int depth = 0;
+                int bracketEnd = -1;
+                for (int i = bracketStart; i < sanitized.length(); i++) {
+                    char c = sanitized.charAt(i);
+                    if (c == '[') depth++;
+                    else if (c == ']') {
+                        depth--;
+                        if (depth == 0) {
+                            bracketEnd = i;
+                            break;
+                        }
+                    }
+                }
+                if (bracketEnd != -1) {
+                    sanitized = sanitized.substring(0, bracketStart) + "[]" + sanitized.substring(bracketEnd + 1);
+                }
+            }
+        }
+
+        // 2. Strip objectViews if populated
+        int viewsIdx = sanitized.indexOf("\"objectViews\"");
+        if (viewsIdx != -1) {
+            int bracketStart = sanitized.indexOf("[", viewsIdx);
+            if (bracketStart != -1) {
+                int depth = 0;
+                int bracketEnd = -1;
+                for (int i = bracketStart; i < sanitized.length(); i++) {
+                    char c = sanitized.charAt(i);
+                    if (c == '[') depth++;
+                    else if (c == ']') {
+                        depth--;
+                        if (depth == 0) {
+                            bracketEnd = i;
+                            break;
+                        }
+                    }
+                }
+                if (bracketEnd != -1) {
+                    sanitized = sanitized.substring(0, bracketStart) + "[]" + sanitized.substring(bracketEnd + 1);
+                }
+            }
+        }
+
+        // 3. Strip any inline "options" from objectFieldSettings
+        int settingsIdx = 0;
+        while ((settingsIdx = sanitized.indexOf("\"objectFieldSettings\"", settingsIdx)) != -1) {
+            int bStart = sanitized.indexOf("[", settingsIdx);
+            if (bStart != -1) {
+                int depth = 0;
+                int bEnd = -1;
+                for (int i = bStart; i < sanitized.length(); i++) {
+                    char c = sanitized.charAt(i);
+                    if (c == '[') depth++;
+                    else if (c == ']') {
+                        depth--;
+                        if (depth == 0) {
+                            bEnd = i;
+                            break;
+                        }
+                    }
+                }
+                if (bEnd != -1) {
+                    String block = sanitized.substring(bStart, bEnd + 1);
+                    if (block.contains("\"options\"")) {
+                        sanitized = sanitized.substring(0, bStart) + "[]" + sanitized.substring(bEnd + 1);
+                        settingsIdx = bStart + 2;
+                        continue;
+                    }
+                }
+            }
+            settingsIdx += 21;
+        }
+
+        // 4. Ensure ListTypeEntry key contains only letters and digits (no spaces, underscores, or hyphens)
+        if (sanitized.contains("\"com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition\"")) {
+            int keyIdx = 0;
+            while ((keyIdx = sanitized.indexOf("\"key\":", keyIdx)) != -1) {
+                int q1 = sanitized.indexOf("\"", keyIdx + 6);
+                if (q1 != -1) {
+                    int q2 = sanitized.indexOf("\"", q1 + 1);
+                    if (q2 != -1) {
+                        String rawKey = sanitized.substring(q1 + 1, q2);
+                        String cleanKey = rawKey.replaceAll("[^a-zA-Z0-9]", "");
+                        if (!cleanKey.equals(rawKey) && !cleanKey.isEmpty()) {
+                            sanitized = sanitized.substring(0, q1 + 1) + cleanKey + sanitized.substring(q2);
+                            keyIdx = q1 + cleanKey.length() + 2;
+                            continue;
+                        }
+                    }
+                }
+                keyIdx += 7;
+            }
+        }
+
+        // 5. Ensure folder name has no spaces
+        if (sanitized.contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectFolder\"")) {
+            int nameIdx = sanitized.indexOf("\"name\":");
+            if (nameIdx != -1) {
+                int valStart = sanitized.indexOf("\"", nameIdx + 7);
+                if (valStart != -1) {
+                    int valEnd = sanitized.indexOf("\"", valStart + 1);
+                    if (valEnd != -1) {
+                        String rawName = sanitized.substring(valStart + 1, valEnd);
+                        String cleanName = rawName.replaceAll("[^a-zA-Z0-9]", "");
+                        if (!cleanName.equals(rawName)) {
+                            sanitized = sanitized.substring(0, valStart + 1) + cleanName + sanitized.substring(valEnd);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. Strip any reserved system fields from objectFields
+        if (sanitized.contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"")) {
+            String[] reservedFields = new String[] {
+                "status", "id", "companyId", "groupId", "userId", "userName",
+                "createDate", "modifiedDate", "uuid", "statusByUserId", "statusByUserName", "statusDate"
+            };
+            for (String reserved : reservedFields) {
+                sanitized = stripReservedField(sanitized, reserved);
+            }
+        }
+
+        return sanitized;
+    }
+
+    private static String stripReservedField(String content, String fieldName) {
+        String marker = "\"name\":";
+        int searchIdx = 0;
+        while ((searchIdx = content.indexOf(marker, searchIdx)) != -1) {
+            int q1 = content.indexOf("\"", searchIdx + marker.length());
+            if (q1 == -1) break;
+            int q2 = content.indexOf("\"", q1 + 1);
+            if (q2 == -1) break;
+            String val = content.substring(q1 + 1, q2).trim();
+            if (val.equals(fieldName)) {
+                // Find enclosing '{'
+                int braceCount = 0;
+                int startIdx = -1;
+                for (int i = searchIdx; i >= 0; i--) {
+                    char c = content.charAt(i);
+                    if (c == '}') braceCount++;
+                    else if (c == '{') {
+                        if (braceCount == 0) {
+                            startIdx = i;
+                            break;
+                        }
+                        braceCount--;
+                    }
+                }
+                if (startIdx == -1) {
+                    searchIdx = q2 + 1;
+                    continue;
+                }
+                // Find enclosing '}'
+                braceCount = 0;
+                int endIdx = -1;
+                for (int i = startIdx; i < content.length(); i++) {
+                    char c = content.charAt(i);
+                    if (c == '{') braceCount++;
+                    else if (c == '}') {
+                        braceCount--;
+                        if (braceCount == 0) {
+                            endIdx = i;
+                            break;
+                        }
+                    }
+                }
+                if (endIdx == -1) {
+                    searchIdx = q2 + 1;
+                    continue;
+                }
+
+                int removeStart = startIdx;
+                int removeEnd = endIdx + 1;
+                while (removeEnd < content.length() && Character.isWhitespace(content.charAt(removeEnd))) {
+                    removeEnd++;
+                }
+                if (removeEnd < content.length() && content.charAt(removeEnd) == ',') {
+                    removeEnd++;
+                } else {
+                    int p = startIdx - 1;
+                    while (p >= 0 && Character.isWhitespace(content.charAt(p))) p--;
+                    if (p >= 0 && content.charAt(p) == ',') {
+                        removeStart = p;
+                    }
+                }
+                content = content.substring(0, removeStart) + content.substring(removeEnd);
+                searchIdx = removeStart;
+                continue;
+            }
+            searchIdx = q2 + 1;
+        }
+        return content;
     }
 }
