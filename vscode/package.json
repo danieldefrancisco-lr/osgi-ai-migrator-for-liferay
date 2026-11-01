@@ -1,0 +1,123 @@
+{
+  "name": "osgi-ai-migrator",
+  "displayName": "OSGi AI Migrator for Liferay",
+  "description": "AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects and Client Extensions, powered by Google Gemini.",
+  "version": "3.1.0",
+  "publisher": "danieldefrancisco-lr",
+  "license": "Apache-2.0",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay"
+  },
+  "bugs": {
+    "url": "https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/issues"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "liferay",
+    "osgi",
+    "migration",
+    "gemini",
+    "client extensions"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "osgiAiMigrator.migrate",
+        "title": "Migrate OSGi Module to Client Extensions...",
+        "category": "OSGi AI Migrator"
+      },
+      {
+        "command": "osgiAiMigrator.setApiKey",
+        "title": "Set Gemini API Key (AI Studio)",
+        "category": "OSGi AI Migrator"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "osgiAiMigrator.migrate",
+          "when": "explorerResourceIsFolder",
+          "group": "z_osgiAiMigrator"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "osgiAiMigrator.migrate",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "OSGi AI Migrator for Liferay",
+      "properties": {
+        "osgiAiMigrator.javaHome": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "JDK 17 or later used to run the migrator. Empty: `JAVA_HOME`, then `java` on the PATH."
+        },
+        "osgiAiMigrator.authType": {
+          "type": "string",
+          "enum": ["GCLOUD_ADC", "VERTEX_AI", "AI_STUDIO"],
+          "enumDescriptions": [
+            "Google Cloud ADC (gcloud auth login)",
+            "Vertex AI with a service account JSON file",
+            "Google AI Studio with an API key (command: Set Gemini API Key)"
+          ],
+          "default": "GCLOUD_ADC",
+          "description": "How to authenticate to Gemini."
+        },
+        "osgiAiMigrator.projectId": {
+          "type": "string",
+          "default": "",
+          "description": "GCP project ID (empty = gcloud active project or GOOGLE_CLOUD_PROJECT)."
+        },
+        "osgiAiMigrator.region": {
+          "type": "string",
+          "default": "us-central1",
+          "description": "Vertex AI region."
+        },
+        "osgiAiMigrator.serviceAccountFile": {
+          "type": "string",
+          "default": "",
+          "description": "Service account JSON file (Vertex AI)."
+        },
+        "osgiAiMigrator.model": {
+          "type": "string",
+          "default": "gemini-2.5-flash",
+          "description": "Gemini model."
+        },
+        "osgiAiMigrator.temperature": {
+          "type": "number",
+          "default": 0.2,
+          "description": "Generation temperature."
+        },
+        "osgiAiMigrator.endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "AI Studio endpoint (empty = default)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test out/test/",
+    "copy-cli": "node scripts/copy-cli.js",
+    "package": "npm run compile && npm run copy-cli && node -e \"require('fs').mkdirSync('dist', { recursive: true })\" && vsce package --out dist/"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.6.3"
+  }
+}

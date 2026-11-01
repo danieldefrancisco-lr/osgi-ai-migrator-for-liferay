@@ -61,6 +61,23 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon buildPlugin 2>&1 | tee -a ../build.log
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      # Bundles the CLI jar built by Maven; the version follows the pom like every other product
+      - name: Build VS Code extension
+        working-directory: vscode
+        run: |
+          set -o pipefail
+          version=$(sed -n 's#^    <version>\(.*\)</version>#\1#p' ../pom.xml | head -1)
+          npm version "${version%-SNAPSHOT}" --no-git-tag-version --allow-same-version
+          npm ci
+          npm test 2>&1 | tee -a ../build.log
+          npm run package 2>&1 | tee -a ../build.log
+
       # Job logs need a signed-in user; annotations are visible to anyone
       - name: Report build errors as annotations
         if: failure()
@@ -80,6 +97,12 @@ jobs:
         with:
           name: intellij-plugin
           path: intellij/build/distributions/*.zip
+
+      - name: Upload VS Code extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension
+          path: vscode/dist/*.vsix
 
       - name: Upload CLI
         uses: actions/upload-artifact@v4
