@@ -64,7 +64,8 @@ jobs:
       # Job logs need a signed-in user; annotations are visible to anyone
       - name: Report build errors as annotations
         if: failure()
-        run: grep -E '^\[ERROR\]|^e: |error:|What went wrong|^> ' build.log | grep -v '^\[ERROR\] *$' | head -40 | sed 's/^/::error::/'
+        run: |
+          grep -E '^\[ERROR\]|^e: |error:|What went wrong|^> ' build.log | grep -v '^\[ERROR\] *$' | head -40 | sed 's/^/::error::/'
 
       - name: Upload golden mismatches
         if: failure()
