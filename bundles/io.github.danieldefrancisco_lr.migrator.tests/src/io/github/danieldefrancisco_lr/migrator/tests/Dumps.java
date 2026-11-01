@@ -1,7 +1,7 @@
 package io.github.danieldefrancisco_lr.migrator.tests;
 
-import io.github.danieldefrancisco_lr.migrator.agent.AgentOrchestrator.MigrationPlan;
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +22,7 @@ import java.util.zip.ZipInputStream;
 /**
  * Deterministic text dumps of analyzer results, plans and written files.
  * Map iteration order is kept on purpose: it decides the order of sections in the Gemini prompts.
+ * Copy of the helper in core/src/test (the OSGi tests cannot use core's test classes); keep both in sync.
  */
 public class Dumps {
 

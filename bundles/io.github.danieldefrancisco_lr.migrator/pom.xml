@@ -13,4 +13,60 @@
 
     <artifactId>io.github.danieldefrancisco_lr.migrator</artifactId>
     <packaging>eclipse-plugin</packaging>
+
+    <properties>
+        <core.jar>io.github.danieldefrancisco_lr.migrator.core.jar</core.jar>
+    </properties>
+
+    <!-- Declared so the reactor builds core first; the jar itself is embedded via Bundle-ClassPath -->
+    <dependencies>
+        <dependency>
+            <groupId>io.github.danieldefrancisco_lr</groupId>
+            <artifactId>io.github.danieldefrancisco_lr.migrator.core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Copy the core jar into lib/ before compiling, where MANIFEST.MF's Bundle-ClassPath expects it -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>embed-core</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.github.danieldefrancisco_lr</groupId>
+                                    <artifactId>io.github.danieldefrancisco_lr.migrator.core</artifactId>
+                                    <version>${project.version}</version>
+                                    <destFileName>${core.jar}</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.basedir}/lib</outputDirectory>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>lib</directory>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -1,8 +1,12 @@
 package io.github.danieldefrancisco_lr.migrator.ui;
 
-import io.github.danieldefrancisco_lr.migrator.agent.AgentOrchestrator;
-import io.github.danieldefrancisco_lr.migrator.agent.AgentOrchestrator.MigrationPlan;
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator;
+import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
+import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiClient;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.output.ArtifactWriter;
+import io.github.danieldefrancisco_lr.migrator.core.output.MigrationReports;
+import io.github.danieldefrancisco_lr.migrator.preferences.PreferenceGeminiSettings;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -58,7 +62,7 @@ public class MigrationWizardDialog extends TitleAreaDialog {
         super(parentShell);
         this.targetResource = resource;
         this.analysisResult = analysis;
-        this.orchestrator = new AgentOrchestrator();
+        this.orchestrator = new AgentOrchestrator(new GeminiClient(new PreferenceGeminiSettings()));
     }
 
     @Override
@@ -107,7 +111,7 @@ public class MigrationWizardDialog extends TitleAreaDialog {
         CTabItem tab1 = new CTabItem(tabFolder, SWT.NONE);
         tab1.setText("1. Donatello (Analyzer)");
         donatelloText = new Text(tabFolder, SWT.MULTI | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
-        donatelloText.setText(buildDonatelloReport());
+        donatelloText.setText(MigrationReports.buildDonatelloReport(analysisResult));
         tab1.setControl(donatelloText);
 
         // Tab 2: Leonardo (The Architect)
@@ -134,163 +138,6 @@ public class MigrationWizardDialog extends TitleAreaDialog {
         tabFolder.setSelection(0);
 
         return area;
-    }
-
-    private String buildDonatelloReport() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("================================================================================\n");
-        sb.append("DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT\n");
-        sb.append("================================================================================\n\n");
-        sb.append("Module Name: ").append(analysisResult.moduleName).append("\n");
-        sb.append("Source Liferay Platform Version: ").append(analysisResult.sourceLiferayVersion != null ? analysisResult.sourceLiferayVersion : "Liferay 7.x").append("\n");
-        sb.append("Liferay Workspace Root: ").append(analysisResult.liferayWorkspaceRoot != null ? analysisResult.liferayWorkspaceRoot : "Auto-detected").append("\n\n");
-
-        sb.append("1. DOMAIN & SERVICE BUILDER:\n");
-        sb.append("   - Has service.xml: ").append(analysisResult.hasServiceBuilder ? "YES" : "NO").append("\n");
-        sb.append("   - Entities Detected (").append(analysisResult.detectedEntities.size()).append("): ").append(String.join(", ", analysisResult.detectedEntities)).append("\n\n");
-
-        sb.append("2. USER INTERFACE & PORTLETS:\n");
-        sb.append("   - Has JSP / Portlet: ").append(analysisResult.hasJspPortlet ? "YES" : "NO").append("\n");
-        sb.append("   - Portlets Detected (").append(analysisResult.detectedPortlets.size()).append("): ").append(String.join(", ", analysisResult.detectedPortlets)).append("\n\n");
-
-        sb.append("3. OSGI EVENT LISTENERS & LOGIC:\n");
-        sb.append("   - Model Listeners Detected (").append(analysisResult.detectedListeners.size()).append("): ").append(String.join(", ", analysisResult.detectedListeners)).append("\n");
-        sb.append("   - Schedulers Detected (").append(analysisResult.detectedSchedulers.size()).append("): ").append(String.join(", ", analysisResult.detectedSchedulers)).append("\n");
-        sb.append("   - Email/Notifications Detected (").append(analysisResult.detectedNotifications.size()).append("): ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n\n");
-
-        sb.append("4. THEMES & LOOK AND FEEL:\n");
-        sb.append("   - Has Theme Artifacts: ").append(analysisResult.hasTheme ? "YES" : "NO").append("\n\n");
-
-        sb.append("5. EXTRACTED SOURCE FILES (").append(analysisResult.rawSourceExtracts.size()).append(" files):\n");
-        for (String k : analysisResult.rawSourceExtracts.keySet()) {
-            sb.append("   - ").append(k).append("\n");
-        }
-
-        return sb.toString();
-    }
-
-    private String buildRaphaelVerificationReport(MigrationPlan plan) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("================================================================================\n");
-        sb.append("RAPHAEL (THE VERIFIER) - PRE-FLIGHT QUALITY ASSURANCE REPORT\n");
-        sb.append("================================================================================\n\n");
-
-        List<String> passes = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-
-        // Validate Generated Files
-        boolean hasBatch = false;
-        boolean hasYaml = false;
-        boolean hasApprovedStatus = false;
-        boolean hasUtcTimeStorage = false;
-
-        for (Map.Entry<String, String> entry : plan.generatedFiles.entrySet()) {
-            String path = entry.getKey();
-            String content = entry.getValue();
-
-            if (path.endsWith("client-extension.yaml")) {
-                hasYaml = true;
-                if (content.contains("type: batch")) {
-                    hasBatch = true;
-                }
-                if (content.contains(".serviceAddress") && content.contains(".serviceScheme")) {
-                    passes.add("OAuth Headless Server configured with .serviceAddress and .serviceScheme");
-                } else if (content.contains("oAuthApplicationHeadlessServer")) {
-                    warnings.add("OAuth block might be missing .serviceAddress: localhost:8080 or .serviceScheme: http");
-                }
-            }
-
-            if (path.endsWith(".batch-engine-data.json")) {
-                if (content.contains("\"status\": {\"code\": 0") || content.contains("\"code\": 0")) {
-                    hasApprovedStatus = true;
-                }
-                if (content.contains("\"companyId\"") || content.contains("\"createDate\"") || content.contains("\"modifiedDate\"")) {
-                    warnings.add("System audit fields (companyId/createDate) detected inside objectFields; recommend removing them.");
-                }
-                if (content.contains("\"objectValidations\"") || content.contains("\"objectValidationRules\"")) {
-                    warnings.add("Invalid 'objectValidations' or 'objectValidationRules' detected inside ObjectDefinition DTO. This causes NoSuchFieldException!");
-                }
-                if (content.contains("\"localized\":")) {
-                    warnings.add("Property 'localized' detected inside ObjectField item. Liferay ObjectField does not accept 'localized'; use root 'enableLocalization' instead.");
-                }
-            }
-        }
-
-        if (hasYaml) passes.add("Canonical client-extension.yaml present");
-        if (hasBatch) passes.add("Batch Client Extension definition present (Liferay 7.4+ schema)");
-        if (hasApprovedStatus) passes.add("Object Definition pre-approved (status.code: 0)");
-
-        sb.append("PRE-FLIGHT CHECKS:\n");
-        for (String p : passes) {
-            sb.append("   [PASS] ").append(p).append("\n");
-        }
-        if (warnings.isEmpty()) {
-            sb.append("   [PASS] Zero schema conflicts or anti-patterns detected.\n\n");
-        } else {
-            for (String w : warnings) {
-                sb.append("   [WARN] ").append(w).append("\n");
-            }
-            sb.append("\n");
-        }
-
-        sb.append("POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:\n\n");
-        sb.append("1. DEPLOY CLIENT EXTENSIONS:\n");
-        sb.append("   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):\n");
-        for (String p : plan.generatedFiles.keySet()) {
-            if (p.endsWith("client-extension.yaml") && plan.generatedFiles.get(p).contains("type: batch")) {
-                String ceName = Paths.get(p).getParent().getFileName().toString();
-                sb.append("     blade gw :client-extensions:").append(ceName).append(":deploy\n");
-            }
-        }
-        sb.append("   - Frontend Custom Element Client Extensions (deploy AFTER objects are active):\n");
-        for (String p : plan.generatedFiles.keySet()) {
-            if (p.endsWith("client-extension.yaml") && plan.generatedFiles.get(p).contains("type: customElement")) {
-                String ceName = Paths.get(p).getParent().getFileName().toString();
-                sb.append("     blade gw :client-extensions:").append(ceName).append(":deploy\n");
-            }
-        }
-        sb.append("\n");
-
-        sb.append("2. IMPORT PAGE FRAGMENTS (IF GENERATED):\n");
-        sb.append("   - Locate the pre-zipped archive: 'fragments/<collection-name>.zip'\n");
-        sb.append("   - In Liferay: Navigate to Site Administration -> Design -> Fragments\n");
-        sb.append("   - Click the (...) menu at the top-right -> Import -> upload the .zip file\n\n");
-
-        sb.append("3. CONFIGURE OBJECT PERMISSIONS (MANDATORY FOR ACCESS):\n");
-        sb.append("   - By default, newly deployed Liferay Objects restrict Guest and User access.\n");
-        sb.append("   - Navigate to: Control Panel -> Objects -> [Your Object] -> Permissions tab\n");
-        sb.append("   - Grant 'View' and 'Add Object Entry' permissions to 'User' and/or 'Guest' roles.\n\n");
-
-        sb.append("4. ADD CUSTOM ELEMENT WIDGET TO CONTENT PAGES:\n");
-        sb.append("   - In Liferay, edit any Content Page in the Page Editor.\n");
-        sb.append("   - Open the Fragments & Widgets panel -> search for your Custom Element under 'Client Extensions'.\n");
-        sb.append("   - Drag and drop the widget onto the page and publish!\n\n");
-
-        sb.append("5. OPTIONAL: CREATE DISPLAY PAGE TEMPLATES (DPT):\n");
-        sb.append("   - For dedicated detail pages for each record without writing React routes:\n");
-        sb.append("   - Navigate to: Site Administration -> Design -> Page Templates -> Display Page Templates\n");
-        sb.append("   - Click 'Add' -> Select your Object definition as the Content Type\n");
-        sb.append("   - Design the detail view using Page Fragments and visually map title, description, and date fields.\n");
-
-        if (!analysisResult.detectedNotifications.isEmpty()) {
-            sb.append("\n6. NOTIFICATION TEMPLATE & OBJECT ACTION SETUP (REPLACING LEGACY MAILSERVICE):\n");
-            sb.append("   - Legacy email sending detected in: ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n");
-            sb.append("   - Modern Liferay replaces hardcoded Java MailService with Native Notification Templates & Object Actions:\n");
-            sb.append("     a) In Liferay: Control Panel -> Notifications -> Notification Templates\n");
-            sb.append("     b) Click (+) Add -> select 'Email'\n");
-            sb.append("        - Name: '").append(analysisResult.moduleName).append(" Confirmation Email'\n");
-            sb.append("        - Subject: Your Registration is Confirmed!\n");
-            sb.append("        - Body: Design using object tokens e.g. [%FIRSTNAME%], [%EMAILADDRESS%]\n");
-            sb.append("     c) In Liferay: Control Panel -> Objects -> [Your Object] -> Actions tab\n");
-            sb.append("     d) Click (+) Add Action:\n");
-            sb.append("        - Action Label: 'Send Confirmation Email'\n");
-            sb.append("        - Trigger: 'On After Add' (fires automatically when Custom Element creates entry)\n");
-            sb.append("        - Action: 'Notification'\n");
-            sb.append("        - Template: Select your created template\n");
-            sb.append("        - Recipient: Select the recipient field (e.g. 'emailAddress')\n");
-        }
-
-        return sb.toString();
     }
 
     @Override
@@ -351,7 +198,7 @@ public class MigrationWizardDialog extends TitleAreaDialog {
                         michelangeloText.setText(sb.length() > 0 ? sb.toString() : "No files generated.");
 
                         // Update Tab 4: Raphael
-                        raphaelText.setText(buildRaphaelVerificationReport(currentPlan));
+                        raphaelText.setText(MigrationReports.buildRaphaelVerificationReport(analysisResult, currentPlan));
 
                         // Switch to Michelangelo tab to show code
                         tabFolder.setSelection(2);
@@ -407,100 +254,10 @@ public class MigrationWizardDialog extends TitleAreaDialog {
                 targetWorkspaceDir = targetResource.getLocation().toFile().getParentFile();
             }
 
-            String moduleSlug = analysisResult.moduleName.toLowerCase().replace(".", "-");
-            if (moduleSlug.endsWith("-service")) {
-                moduleSlug = moduleSlug.substring(0, moduleSlug.length() - 8);
-            }
-            if (moduleSlug.endsWith("-api")) {
-                moduleSlug = moduleSlug.substring(0, moduleSlug.length() - 4);
-            }
-            String defaultObjectCeDir = "client-extensions/" + moduleSlug + "-object";
-
-            java.util.Set<String> fragmentCollections = new java.util.HashSet<>();
-
-            for (Map.Entry<String, String> entry : currentPlan.generatedFiles.entrySet()) {
-                String relativePath = entry.getKey().trim();
-
-                // Skip standalone validation/action batch files to keep Batch CX 100% clean and prevent Jackson deserialization crashes
-                if (relativePath.endsWith("-validations.batch-engine-data.json") ||
-                    relativePath.endsWith("-actions.batch-engine-data.json") ||
-                    relativePath.endsWith("-notification-template.batch-engine-data.json") ||
-                    relativePath.endsWith("-template.batch-engine-data.json")) {
-                    continue;
-                }
-
-                // Re-route fragments mistakenly prefixed with client-extensions/
-                if (relativePath.startsWith("client-extensions/") &&
-                    (relativePath.contains("-fragments/") || relativePath.contains("/collection.json") || relativePath.contains("/fragment.json"))) {
-                    relativePath = "fragments/" + relativePath.substring("client-extensions/".length());
-                }
-
-                // Defensive path normalization
-                if (!relativePath.startsWith("client-extensions/") &&
-                    !relativePath.startsWith("modules/") &&
-                    !relativePath.startsWith("fragments/")) {
-
-                    if (relativePath.contains("custom-element") || relativePath.contains("src/") || relativePath.endsWith(".js") || relativePath.endsWith(".jsx")) {
-                        relativePath = "client-extensions/" + moduleSlug + "-custom-element/" + relativePath;
-                    } else if (relativePath.contains("collection.json") || relativePath.contains("fragment.json")) {
-                        relativePath = "fragments/" + moduleSlug + "-fragments/" + relativePath;
-                    } else {
-                        relativePath = defaultObjectCeDir + "/" + relativePath;
-                    }
-                }
-
-                // Track fragment collections
-                if (relativePath.startsWith("fragments/")) {
-                    String sub = relativePath.substring("fragments/".length());
-                    int slash = sub.indexOf("/");
-                    if (slash != -1) {
-                        fragmentCollections.add(sub.substring(0, slash));
-                    }
-                }
-
-                Path targetPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), relativePath);
-                Files.createDirectories(targetPath.getParent());
-
-                String fileContent = entry.getValue();
-                if (relativePath.endsWith(".batch-engine-data.json")) {
-                    fileContent = sanitizeBatchJson(fileContent);
-                }
-
-                Files.writeString(targetPath, fileContent);
-            }
-
-            // Automatically zip fragment collections for 1-click import into Liferay
-            for (String col : fragmentCollections) {
-                File colDir = new File(targetWorkspaceDir, "fragments/" + col);
-                if (colDir.exists() && colDir.isDirectory()) {
-                    File zipFile = new File(targetWorkspaceDir, "fragments/" + col + ".zip");
-                    zipDirectory(colDir, zipFile);
-                }
-            }
-
-            // Write MIGRATION.md and persist migration history
-            String reportMarkdown = generateMigrationMarkdownReport();
-
-            // 1. Central report in docs/migrations/
-            Path centralReportPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), "docs/migrations/" + moduleSlug + "-migration-report.md");
-            Files.createDirectories(centralReportPath.getParent());
-            Files.writeString(centralReportPath, reportMarkdown);
-
-            // 2. MIGRATION.md inside each created client extension folder
-            java.util.Set<String> createdCeDirs = new java.util.HashSet<>();
-            for (String path : currentPlan.generatedFiles.keySet()) {
-                if (path.startsWith("client-extensions/")) {
-                    String sub = path.substring("client-extensions/".length());
-                    int slash = sub.indexOf("/");
-                    if (slash != -1) {
-                        createdCeDirs.add(sub.substring(0, slash));
-                    }
-                }
-            }
-            for (String ceDir : createdCeDirs) {
-                Path ceReportPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), "client-extensions/" + ceDir + "/MIGRATION.md");
-                Files.writeString(ceReportPath, reportMarkdown);
-            }
+            ArtifactWriter.WriteResult written = ArtifactWriter.writeArtifacts(analysisResult, currentPlan, targetWorkspaceDir);
+            String moduleSlug = written.moduleSlug;
+            java.util.Set<String> fragmentCollections = written.fragmentCollections;
+            java.util.Set<String> createdCeDirs = written.createdCeDirs;
 
             targetResource.getProject().getWorkspace().getRoot().refreshLocal(IResource.DEPTH_INFINITE, null);
 
@@ -526,252 +283,4 @@ public class MigrationWizardDialog extends TitleAreaDialog {
         }
     }
 
-    private String generateMigrationMarkdownReport() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("# Modernization Report & Action Guide\n\n");
-        sb.append("- **Generated on:** ").append(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n");
-        sb.append("- **Source Module:** `").append(analysisResult.moduleName).append("`\n");
-        sb.append("- **Source Liferay Platform Version:** `").append(analysisResult.sourceLiferayVersion != null ? analysisResult.sourceLiferayVersion : "Liferay 7.x").append("`\n");
-        sb.append("- **Target Standard:** Liferay DXP 7.4+ Client Extensions & Objects\n\n");
-
-        sb.append("---\n\n");
-        sb.append("## 1. Donatello (The Analyzer) - Legacy Extraction Summary\n\n");
-        sb.append("```\n").append(buildDonatelloReport()).append("```\n\n");
-
-        sb.append("---\n\n");
-        sb.append("## 2. Leonardo (The Architect) - Modernization Blueprint\n\n");
-        sb.append(currentPlan.architectureBlueprint != null ? currentPlan.architectureBlueprint : "No blueprint generated.").append("\n\n");
-
-        sb.append("---\n\n");
-        sb.append("## 3. Michelangelo (The Coder) - Generated Artifacts Inventory\n\n");
-        for (String file : currentPlan.generatedFiles.keySet()) {
-            sb.append("- `").append(file).append("`\n");
-        }
-        sb.append("\n---\n\n");
-
-        sb.append("## 4. Raphael (The Verifier) - Post-Migration Action Checklist\n\n");
-        sb.append(buildRaphaelVerificationReport(currentPlan)).append("\n");
-
-        return sb.toString();
-    }
-
-    private static void zipDirectory(File folderToZip, File zipFile) {
-        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(zipFile))) {
-            Path sourcePath = folderToZip.toPath();
-            Files.walk(sourcePath)
-                .filter(path -> !Files.isDirectory(path))
-                .forEach(path -> {
-                    String zipEntryName = sourcePath.relativize(path).toString().replace("\\", "/");
-                    try {
-                        zos.putNextEntry(new java.util.zip.ZipEntry(zipEntryName));
-                        Files.copy(path, zos);
-                        zos.closeEntry();
-                    } catch (Exception ignored) {}
-                });
-        } catch (Exception ignored) {}
-    }
-
-    private static String sanitizeBatchJson(String content) {
-        String sanitized = content;
-
-        // 1. Strip objectLayouts if populated
-        int layoutIdx = sanitized.indexOf("\"objectLayouts\"");
-        if (layoutIdx != -1) {
-            int bracketStart = sanitized.indexOf("[", layoutIdx);
-            if (bracketStart != -1) {
-                int depth = 0;
-                int bracketEnd = -1;
-                for (int i = bracketStart; i < sanitized.length(); i++) {
-                    char c = sanitized.charAt(i);
-                    if (c == '[') depth++;
-                    else if (c == ']') {
-                        depth--;
-                        if (depth == 0) {
-                            bracketEnd = i;
-                            break;
-                        }
-                    }
-                }
-                if (bracketEnd != -1) {
-                    sanitized = sanitized.substring(0, bracketStart) + "[]" + sanitized.substring(bracketEnd + 1);
-                }
-            }
-        }
-
-        // 2. Strip objectViews if populated
-        int viewsIdx = sanitized.indexOf("\"objectViews\"");
-        if (viewsIdx != -1) {
-            int bracketStart = sanitized.indexOf("[", viewsIdx);
-            if (bracketStart != -1) {
-                int depth = 0;
-                int bracketEnd = -1;
-                for (int i = bracketStart; i < sanitized.length(); i++) {
-                    char c = sanitized.charAt(i);
-                    if (c == '[') depth++;
-                    else if (c == ']') {
-                        depth--;
-                        if (depth == 0) {
-                            bracketEnd = i;
-                            break;
-                        }
-                    }
-                }
-                if (bracketEnd != -1) {
-                    sanitized = sanitized.substring(0, bracketStart) + "[]" + sanitized.substring(bracketEnd + 1);
-                }
-            }
-        }
-
-        // 3. Strip any inline "options" from objectFieldSettings
-        int settingsIdx = 0;
-        while ((settingsIdx = sanitized.indexOf("\"objectFieldSettings\"", settingsIdx)) != -1) {
-            int bStart = sanitized.indexOf("[", settingsIdx);
-            if (bStart != -1) {
-                int depth = 0;
-                int bEnd = -1;
-                for (int i = bStart; i < sanitized.length(); i++) {
-                    char c = sanitized.charAt(i);
-                    if (c == '[') depth++;
-                    else if (c == ']') {
-                        depth--;
-                        if (depth == 0) {
-                            bEnd = i;
-                            break;
-                        }
-                    }
-                }
-                if (bEnd != -1) {
-                    String block = sanitized.substring(bStart, bEnd + 1);
-                    if (block.contains("\"options\"")) {
-                        sanitized = sanitized.substring(0, bStart) + "[]" + sanitized.substring(bEnd + 1);
-                        settingsIdx = bStart + 2;
-                        continue;
-                    }
-                }
-            }
-            settingsIdx += 21;
-        }
-
-        // 4. Ensure ListTypeEntry key contains only letters and digits (no spaces, underscores, or hyphens)
-        if (sanitized.contains("\"com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition\"")) {
-            int keyIdx = 0;
-            while ((keyIdx = sanitized.indexOf("\"key\":", keyIdx)) != -1) {
-                int q1 = sanitized.indexOf("\"", keyIdx + 6);
-                if (q1 != -1) {
-                    int q2 = sanitized.indexOf("\"", q1 + 1);
-                    if (q2 != -1) {
-                        String rawKey = sanitized.substring(q1 + 1, q2);
-                        String cleanKey = rawKey.replaceAll("[^a-zA-Z0-9]", "");
-                        if (!cleanKey.equals(rawKey) && !cleanKey.isEmpty()) {
-                            sanitized = sanitized.substring(0, q1 + 1) + cleanKey + sanitized.substring(q2);
-                            keyIdx = q1 + cleanKey.length() + 2;
-                            continue;
-                        }
-                    }
-                }
-                keyIdx += 7;
-            }
-        }
-
-        // 5. Ensure folder name has no spaces
-        if (sanitized.contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectFolder\"")) {
-            int nameIdx = sanitized.indexOf("\"name\":");
-            if (nameIdx != -1) {
-                int valStart = sanitized.indexOf("\"", nameIdx + 7);
-                if (valStart != -1) {
-                    int valEnd = sanitized.indexOf("\"", valStart + 1);
-                    if (valEnd != -1) {
-                        String rawName = sanitized.substring(valStart + 1, valEnd);
-                        String cleanName = rawName.replaceAll("[^a-zA-Z0-9]", "");
-                        if (!cleanName.equals(rawName)) {
-                            sanitized = sanitized.substring(0, valStart + 1) + cleanName + sanitized.substring(valEnd);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 6. Strip any reserved system fields from objectFields
-        if (sanitized.contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"")) {
-            String[] reservedFields = new String[] {
-                "status", "id", "companyId", "groupId", "userId", "userName",
-                "createDate", "modifiedDate", "uuid", "statusByUserId", "statusByUserName", "statusDate"
-            };
-            for (String reserved : reservedFields) {
-                sanitized = stripReservedField(sanitized, reserved);
-            }
-        }
-
-        return sanitized;
-    }
-
-    private static String stripReservedField(String content, String fieldName) {
-        String marker = "\"name\":";
-        int searchIdx = 0;
-        while ((searchIdx = content.indexOf(marker, searchIdx)) != -1) {
-            int q1 = content.indexOf("\"", searchIdx + marker.length());
-            if (q1 == -1) break;
-            int q2 = content.indexOf("\"", q1 + 1);
-            if (q2 == -1) break;
-            String val = content.substring(q1 + 1, q2).trim();
-            if (val.equals(fieldName)) {
-                // Find enclosing '{'
-                int braceCount = 0;
-                int startIdx = -1;
-                for (int i = searchIdx; i >= 0; i--) {
-                    char c = content.charAt(i);
-                    if (c == '}') braceCount++;
-                    else if (c == '{') {
-                        if (braceCount == 0) {
-                            startIdx = i;
-                            break;
-                        }
-                        braceCount--;
-                    }
-                }
-                if (startIdx == -1) {
-                    searchIdx = q2 + 1;
-                    continue;
-                }
-                // Find enclosing '}'
-                braceCount = 0;
-                int endIdx = -1;
-                for (int i = startIdx; i < content.length(); i++) {
-                    char c = content.charAt(i);
-                    if (c == '{') braceCount++;
-                    else if (c == '}') {
-                        braceCount--;
-                        if (braceCount == 0) {
-                            endIdx = i;
-                            break;
-                        }
-                    }
-                }
-                if (endIdx == -1) {
-                    searchIdx = q2 + 1;
-                    continue;
-                }
-
-                int removeStart = startIdx;
-                int removeEnd = endIdx + 1;
-                while (removeEnd < content.length() && Character.isWhitespace(content.charAt(removeEnd))) {
-                    removeEnd++;
-                }
-                if (removeEnd < content.length() && content.charAt(removeEnd) == ',') {
-                    removeEnd++;
-                } else {
-                    int p = startIdx - 1;
-                    while (p >= 0 && Character.isWhitespace(content.charAt(p))) p--;
-                    if (p >= 0 && content.charAt(p) == ',') {
-                        removeStart = p;
-                    }
-                }
-                content = content.substring(0, removeStart) + content.substring(removeEnd);
-                searchIdx = removeStart;
-                continue;
-            }
-            searchIdx = q2 + 1;
-        }
-        return content;
-    }
 }

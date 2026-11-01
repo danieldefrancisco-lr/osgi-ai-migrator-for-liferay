@@ -46,6 +46,27 @@ The p2 update site is generated in
 `releng/io.github.danieldefrancisco_lr.migrator.updatesite/target/repository/`
 (also zipped next to it).
 
+## Tests
+
+The build runs characterization tests that pin the plugin's behavior. They run the whole pipeline on the
+synthetic legacy modules in `testdata/fixtures`, with Gemini replaced by the canned answers in
+`testdata/responses`, and compare everything the plugin produces (analysis, the exact prompts sent to each
+agent, reports and the files written to the workspace) with `testdata/golden`:
+
+- `core` runs them outside Eclipse, the way the CLI and other IDEs will.
+- `bundles/io.github.danieldefrancisco_lr.migrator.tests` runs them inside Eclipse, through the plugin's
+  workspace integration and the "Apply to Workspace" step.
+
+When a change is meant to alter the output (for example, editing a playbook changes the prompts), update the
+goldens and review the diff before committing:
+
+```
+./mvnw clean verify -Dgolden.update=true
+git diff testdata/golden
+```
+
+On Linux the Eclipse tests need a display; CI runs them with `xvfb-run`.
+
 ## Releasing
 
 Pushes to `main` and pull requests only build. The update site is published to GitHub Pages
@@ -60,11 +81,19 @@ when a `v*` tag is pushed, and the tag must match the plugin and feature version
 
 ```
 pom.xml                                               Maven/Tycho parent
-bundles/io.github.danieldefrancisco_lr.migrator       The plugin
+core                                                  Migration engine, plain Java (no Eclipse dependencies):
+                                                      analyzer, agents, Gemini client, reports, file writer,
+                                                      knowledge/ playbooks
+bundles/io.github.danieldefrancisco_lr.migrator       Eclipse plugin: menu, wizard, preferences;
+                                                      embeds core as lib/*.jar (copied by the build)
+bundles/io.github.danieldefrancisco_lr.migrator.tests Eclipse characterization tests (not shipped)
 features/io.github.danieldefrancisco_lr.migrator.feature
 releng/io.github.danieldefrancisco_lr.migrator.target      Target platform (Eclipse 2024-12)
 releng/io.github.danieldefrancisco_lr.migrator.updatesite  p2 update site (category.xml)
+testdata                                              Test fixtures, canned Gemini answers and goldens
 ```
+
+To work on the plugin in Eclipse (PDE), run the Maven build once so `lib/` contains the core jar.
 
 ## License
 

@@ -1,6 +1,6 @@
 package io.github.danieldefrancisco_lr.migrator.tests;
 
-import io.github.danieldefrancisco_lr.migrator.agent.GeminiClient;
+import io.github.danieldefrancisco_lr.migrator.core.agent.LlmClient;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,11 +11,16 @@ import java.util.TreeMap;
 /**
  * Stands in for Gemini: records each agent's system instruction and prompt and answers with the canned
  * response in testdata/responses/<variant>/<role>.txt, falling back to testdata/responses/default/.
+ * Copy of the helper in core/src/test (the OSGi tests cannot use core's test classes); keep both in sync.
  */
-public class RecordingGemini extends GeminiClient {
+public class RecordingGemini implements LlmClient {
 
-    public Map<String, String[]> calls = new TreeMap<>();
-    public String variant = "default";
+    public final Map<String, String[]> calls = new TreeMap<>();
+    private final String variant;
+
+    public RecordingGemini(String variant) {
+        this.variant = variant;
+    }
 
     @Override
     public String generateContent(String systemInstruction, String userPrompt) throws Exception {

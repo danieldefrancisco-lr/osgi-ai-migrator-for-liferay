@@ -1,7 +1,8 @@
-package io.github.danieldefrancisco_lr.migrator.analyzer;
+package io.github.danieldefrancisco_lr.migrator.core.analyzer;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,18 +11,36 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IFolder;
-import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.resources.IResourceVisitor;
-import org.eclipse.core.runtime.CoreException;
-
 /**
- * Donatello (The Analyzer) - Reverse-engineers legacy OSGi resources using Eclipse Resource & AST APIs.
+ * Donatello (The Analyzer) - Reverse-engineers legacy OSGi resources.
  * Detects legacy Liferay platform version from gradle.properties or pom.xml.
+ * The files to scan come from a {@link ModuleSource}: the Eclipse workspace, or the file system for the CLI.
  */
 public class LegacyModuleAnalyzer {
+
+    /** A file of the module being analyzed. */
+    public interface ModuleFile {
+        String getName();
+        /** Path relative to the project, with '/' separators. */
+        String getProjectRelativePath();
+        InputStream getContents() throws Exception;
+    }
+
+    public interface FileVisitor {
+        void visit(ModuleFile file) throws Exception;
+    }
+
+    /** The module (or folder of it) selected for migration. */
+    public interface ModuleSource {
+        /** Project name, or the selected resource's name when it is not in a project. */
+        String getModuleName();
+        /** Location of the selected resource. */
+        File getLocation();
+        /** Location of the enclosing project, or null. */
+        File getProjectLocation();
+        /** Visits every file under the selected resource, in a stable order. */
+        void visitFiles(FileVisitor visitor) throws Exception;
+    }
 
     public static class ModuleAnalysisResult {
         public String moduleName;
@@ -39,82 +58,77 @@ public class LegacyModuleAnalyzer {
         public Map<String, String> rawSourceExtracts = new HashMap<>();
     }
 
-    public static ModuleAnalysisResult analyzeResource(IResource resource) throws CoreException {
+    public static ModuleAnalysisResult analyze(ModuleSource source) throws Exception {
         ModuleAnalysisResult result = new ModuleAnalysisResult();
-        IProject project = resource.getProject();
-        result.moduleName = project != null ? project.getName() : resource.getName();
-        result.projectPath = resource.getLocation().toOSString();
+        result.moduleName = source.getModuleName();
+        result.projectPath = source.getLocation().getPath();
 
         // 1. Detect Liferay Workspace Root and Liferay Platform Version
-        detectLiferayWorkspaceAndVersion(resource, result);
+        detectLiferayWorkspaceAndVersion(source, result);
 
         // 2. Scan Module Resources
-        resource.accept(new IResourceVisitor() {
+        source.visitFiles(new FileVisitor() {
             @Override
-            public boolean visit(IResource res) throws CoreException {
-                if (res.getType() == IResource.FILE) {
-                    IFile file = (IFile) res;
-                    String fileName = file.getName();
+            public void visit(ModuleFile file) throws Exception {
+                String fileName = file.getName();
 
-                    // Detect Service Builder
-                    if ("service.xml".equalsIgnoreCase(fileName)) {
-                        result.hasServiceBuilder = true;
-                        String content = readFileContent(file);
-                        result.rawSourceExtracts.put("service.xml", content);
-                        extractEntitiesFromServiceXml(content, result.detectedEntities);
+                // Detect Service Builder
+                if ("service.xml".equalsIgnoreCase(fileName)) {
+                    result.hasServiceBuilder = true;
+                    String content = readFileContent(file);
+                    result.rawSourceExtracts.put("service.xml", content);
+                    extractEntitiesFromServiceXml(content, result.detectedEntities);
 
-                        // Fallback version detection from service-builder DTD
-                        if (result.sourceLiferayVersion == null) {
-                            result.sourceLiferayVersion = extractVersionFromServiceXmlDtd(content);
-                        }
-                    }
-                    // Detect JSPs
-                    else if (fileName.endsWith(".jsp") || fileName.endsWith(".jspf")) {
-                        result.hasJspPortlet = true;
-                        result.rawSourceExtracts.put("jsp:" + file.getProjectRelativePath(), readFileContent(file));
-                    }
-                    // Detect Java Sources (Portlets, Listeners, Wrappers)
-                    else if (fileName.endsWith(".java")) {
-                        String content = readFileContent(file);
-                        if (content.contains("@Component") && content.contains("Portlet.class")) {
-                            result.hasJspPortlet = true;
-                            result.detectedPortlets.add(fileName);
-                            result.rawSourceExtracts.put("java:portlet:" + fileName, content);
-                        }
-                        // Detect referenced model entities from imports (e.g. import ...model.Assignment;)
-                        extractModelImports(content, result.detectedEntities);
-
-                        // Detect legacy mail or user notifications
-                        if (content.contains("MailServiceUtil") || content.contains("MailMessage") ||
-                            content.contains("MailEngine") || content.contains("UserNotificationEventLocalService")) {
-                            result.detectedNotifications.add(fileName);
-                            result.rawSourceExtracts.put("java:notification:" + fileName, content);
-                        }
-
-                        if (content.contains("ModelListener") || content.contains("BaseModelListener")) {
-                            result.detectedListeners.add(fileName);
-                            result.rawSourceExtracts.put("java:listener:" + fileName, content);
-                        }
-                        if (content.contains("ServiceWrapper") || content.contains("LocalServiceWrapper")) {
-                            result.rawSourceExtracts.put("java:wrapper:" + fileName, content);
-                        }
-                        if (content.contains("SchedulerEntry") || content.contains("BaseMessageListener") || content.contains("DispatchTaskExecutor")) {
-                            result.detectedSchedulers.add(fileName);
-                            result.rawSourceExtracts.put("java:scheduler:" + fileName, content);
-                        }
-                    }
-                    // Detect Themes
-                    else if ("portal_normal.ftl".equalsIgnoreCase(fileName) || "liferay-look-and-feel.xml".equalsIgnoreCase(fileName)) {
-                        result.hasTheme = true;
-                        result.rawSourceExtracts.put("theme:" + fileName, readFileContent(file));
-                    }
-                    // Inspect module's build.gradle for version clues
-                    else if ("build.gradle".equalsIgnoreCase(fileName) && result.sourceLiferayVersion == null) {
-                        String content = readFileContent(file);
-                        result.sourceLiferayVersion = extractVersionFromBuildGradle(content);
+                    // Fallback version detection from service-builder DTD
+                    if (result.sourceLiferayVersion == null) {
+                        result.sourceLiferayVersion = extractVersionFromServiceXmlDtd(content);
                     }
                 }
-                return true;
+                // Detect JSPs
+                else if (fileName.endsWith(".jsp") || fileName.endsWith(".jspf")) {
+                    result.hasJspPortlet = true;
+                    result.rawSourceExtracts.put("jsp:" + file.getProjectRelativePath(), readFileContent(file));
+                }
+                // Detect Java Sources (Portlets, Listeners, Wrappers)
+                else if (fileName.endsWith(".java")) {
+                    String content = readFileContent(file);
+                    if (content.contains("@Component") && content.contains("Portlet.class")) {
+                        result.hasJspPortlet = true;
+                        result.detectedPortlets.add(fileName);
+                        result.rawSourceExtracts.put("java:portlet:" + fileName, content);
+                    }
+                    // Detect referenced model entities from imports (e.g. import ...model.Assignment;)
+                    extractModelImports(content, result.detectedEntities);
+
+                    // Detect legacy mail or user notifications
+                    if (content.contains("MailServiceUtil") || content.contains("MailMessage") ||
+                        content.contains("MailEngine") || content.contains("UserNotificationEventLocalService")) {
+                        result.detectedNotifications.add(fileName);
+                        result.rawSourceExtracts.put("java:notification:" + fileName, content);
+                    }
+
+                    if (content.contains("ModelListener") || content.contains("BaseModelListener")) {
+                        result.detectedListeners.add(fileName);
+                        result.rawSourceExtracts.put("java:listener:" + fileName, content);
+                    }
+                    if (content.contains("ServiceWrapper") || content.contains("LocalServiceWrapper")) {
+                        result.rawSourceExtracts.put("java:wrapper:" + fileName, content);
+                    }
+                    if (content.contains("SchedulerEntry") || content.contains("BaseMessageListener") || content.contains("DispatchTaskExecutor")) {
+                        result.detectedSchedulers.add(fileName);
+                        result.rawSourceExtracts.put("java:scheduler:" + fileName, content);
+                    }
+                }
+                // Detect Themes
+                else if ("portal_normal.ftl".equalsIgnoreCase(fileName) || "liferay-look-and-feel.xml".equalsIgnoreCase(fileName)) {
+                    result.hasTheme = true;
+                    result.rawSourceExtracts.put("theme:" + fileName, readFileContent(file));
+                }
+                // Inspect module's build.gradle for version clues
+                else if ("build.gradle".equalsIgnoreCase(fileName) && result.sourceLiferayVersion == null) {
+                    String content = readFileContent(file);
+                    result.sourceLiferayVersion = extractVersionFromBuildGradle(content);
+                }
             }
         });
 
@@ -125,8 +139,8 @@ public class LegacyModuleAnalyzer {
         return result;
     }
 
-    private static void detectLiferayWorkspaceAndVersion(IResource resource, ModuleAnalysisResult result) {
-        File current = resource.getLocation().toFile();
+    private static void detectLiferayWorkspaceAndVersion(ModuleSource source, ModuleAnalysisResult result) {
+        File current = source.getLocation();
         if (current.isFile()) {
             current = current.getParentFile();
         }
@@ -165,8 +179,8 @@ public class LegacyModuleAnalyzer {
         }
 
         // Fallback: project directory parent
-        if (resource.getProject() != null && resource.getProject().getLocation() != null) {
-            File projDir = resource.getProject().getLocation().toFile();
+        if (source.getProjectLocation() != null) {
+            File projDir = source.getProjectLocation();
             result.liferayWorkspaceRoot = projDir.getParentFile() != null ? projDir.getParentFile().getAbsolutePath() : projDir.getAbsolutePath();
         }
     }
@@ -274,7 +288,7 @@ public class LegacyModuleAnalyzer {
         }
     }
 
-    private static String readFileContent(IFile file) {
+    private static String readFileContent(ModuleFile file) {
         StringBuilder sb = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getContents(), StandardCharsets.UTF_8))) {
             String line;

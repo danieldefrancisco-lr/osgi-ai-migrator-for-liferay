@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.danieldefrancisco_lr</groupId>
+        <artifactId>io.github.danieldefrancisco_lr.migrator.parent</artifactId>
+        <version>3.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <!-- IDE-independent migration engine: analyzer, agents, Gemini client, reports and file writer.
+         Plain Java, no Eclipse dependencies; embedded by the Eclipse plugin and reused by the CLI and other IDEs. -->
+    <artifactId>io.github.danieldefrancisco_lr.migrator.core</artifactId>
+    <packaging>jar</packaging>
+    <name>OSGi AI Migrator for Liferay - Core</name>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <!-- Run with -Dgolden.update=true to rewrite testdata/golden from the current behavior -->
+        <golden.update>false</golden.update>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <testdata.dir>${project.basedir}/../testdata</testdata.dir>
+                        <golden.update>${golden.update}</golden.update>
+                        <golden.actual.dir>${project.build.directory}/golden-actual</golden.actual.dir>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

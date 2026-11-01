@@ -1,8 +1,9 @@
 package io.github.danieldefrancisco_lr.migrator.handlers;
 
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer;
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
 import io.github.danieldefrancisco_lr.migrator.ui.MigrationWizardDialog;
+import io.github.danieldefrancisco_lr.migrator.workspace.EclipseModuleSource;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
@@ -36,7 +37,7 @@ public class MigrateModuleHandler extends AbstractHandler {
 
             if (resource != null) {
                 try {
-                    ModuleAnalysisResult analysis = LegacyModuleAnalyzer.analyzeResource(resource);
+                    ModuleAnalysisResult analysis = LegacyModuleAnalyzer.analyze(new EclipseModuleSource(resource));
                     MigrationWizardDialog dialog = new MigrationWizardDialog(
                         HandlerUtil.getActiveShell(event),
                         resource,

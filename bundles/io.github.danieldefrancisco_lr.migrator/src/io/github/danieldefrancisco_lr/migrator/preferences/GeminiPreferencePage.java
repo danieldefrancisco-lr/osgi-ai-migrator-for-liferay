@@ -1,6 +1,7 @@
 package io.github.danieldefrancisco_lr.migrator.preferences;
 
 import io.github.danieldefrancisco_lr.migrator.Activator;
+import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiSettings;
 
 import org.eclipse.jface.preference.ComboFieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
@@ -25,13 +26,13 @@ public class GeminiPreferencePage extends FieldEditorPreferencePage implements I
     public void createFieldEditors() {
         // 1. Gateway Type Selector
         String[][] authTypes = new String[][] {
-            {"Google Cloud ADC / gcloud CLI (Recommended: Corporate SSO, Zero Keys)", PreferenceConstants.AUTH_TYPE_GCLOUD_ADC},
-            {"Google Cloud Vertex AI (Service Account JSON File Key)", PreferenceConstants.AUTH_TYPE_VERTEX_AI},
-            {"Google AI Studio (API Key - Individual Developer)", PreferenceConstants.AUTH_TYPE_AI_STUDIO}
+            {"Google Cloud ADC / gcloud CLI (Recommended: Corporate SSO, Zero Keys)", GeminiSettings.AUTH_TYPE_GCLOUD_ADC},
+            {"Google Cloud Vertex AI (Service Account JSON File Key)", GeminiSettings.AUTH_TYPE_VERTEX_AI},
+            {"Google AI Studio (API Key - Individual Developer)", GeminiSettings.AUTH_TYPE_AI_STUDIO}
         };
 
         addField(new RadioGroupFieldEditor(
-            PreferenceConstants.P_AUTH_TYPE,
+            GeminiSettings.P_AUTH_TYPE,
             "Authentication Method:",
             1,
             authTypes,
@@ -41,19 +42,19 @@ public class GeminiPreferencePage extends FieldEditorPreferencePage implements I
 
         // 2. Google Cloud / Vertex AI Settings
         addField(new StringFieldEditor(
-            PreferenceConstants.P_VERTEX_PROJECT_ID,
+            GeminiSettings.P_VERTEX_PROJECT_ID,
             "GCP Project ID (empty = gcloud active project):",
             getFieldEditorParent()
         ));
 
         addField(new StringFieldEditor(
-            PreferenceConstants.P_VERTEX_REGION,
+            GeminiSettings.P_VERTEX_REGION,
             "Vertex AI Region (e.g. us-central1, europe-west1):",
             getFieldEditorParent()
         ));
 
         FileFieldEditor saEditor = new FileFieldEditor(
-            PreferenceConstants.P_SERVICE_ACCOUNT_FILE,
+            GeminiSettings.P_SERVICE_ACCOUNT_FILE,
             "Service Account JSON (Only if using Service Account Key):",
             getFieldEditorParent()
         );
@@ -63,7 +64,7 @@ public class GeminiPreferencePage extends FieldEditorPreferencePage implements I
         // 3. AI Studio (API Key) Settings
         // Stored in Eclipse Secure Storage, not in the plain-text preference store
         addField(new SecureStringFieldEditor(
-            PreferenceConstants.P_GEMINI_API_KEY,
+            GeminiSettings.P_GEMINI_API_KEY,
             "Gemini API Key (Only if using AI Studio):",
             getFieldEditorParent()
         ));
@@ -77,14 +78,14 @@ public class GeminiPreferencePage extends FieldEditorPreferencePage implements I
         };
 
         addField(new ComboFieldEditor(
-            PreferenceConstants.P_GEMINI_MODEL,
+            GeminiSettings.P_GEMINI_MODEL,
             "Gemini Model:",
             models,
             getFieldEditorParent()
         ));
 
         addField(new StringFieldEditor(
-            PreferenceConstants.P_TEMPERATURE,
+            GeminiSettings.P_TEMPERATURE,
             "Model Temperature (0.0 - 1.0):",
             getFieldEditorParent()
         ));
@@ -92,9 +93,9 @@ public class GeminiPreferencePage extends FieldEditorPreferencePage implements I
 
     @Override
     public void init(IWorkbench workbench) {
-        getPreferenceStore().setDefault(PreferenceConstants.P_AUTH_TYPE, PreferenceConstants.AUTH_TYPE_GCLOUD_ADC);
-        getPreferenceStore().setDefault(PreferenceConstants.P_VERTEX_REGION, PreferenceConstants.DEFAULT_VERTEX_REGION);
-        getPreferenceStore().setDefault(PreferenceConstants.P_GEMINI_MODEL, PreferenceConstants.DEFAULT_MODEL);
-        getPreferenceStore().setDefault(PreferenceConstants.P_TEMPERATURE, PreferenceConstants.DEFAULT_TEMPERATURE);
+        getPreferenceStore().setDefault(GeminiSettings.P_AUTH_TYPE, GeminiSettings.AUTH_TYPE_GCLOUD_ADC);
+        getPreferenceStore().setDefault(GeminiSettings.P_VERTEX_REGION, GeminiSettings.DEFAULT_VERTEX_REGION);
+        getPreferenceStore().setDefault(GeminiSettings.P_GEMINI_MODEL, GeminiSettings.DEFAULT_MODEL);
+        getPreferenceStore().setDefault(GeminiSettings.P_TEMPERATURE, GeminiSettings.DEFAULT_TEMPERATURE);
     }
 }

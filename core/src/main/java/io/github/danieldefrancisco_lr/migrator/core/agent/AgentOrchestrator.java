@@ -1,6 +1,6 @@
-package io.github.danieldefrancisco_lr.migrator.agent;
+package io.github.danieldefrancisco_lr.migrator.core.agent;
 
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
 
 import java.io.File;
 import java.io.InputStream;
@@ -19,10 +19,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public class AgentOrchestrator {
 
-    private final GeminiClient geminiClient;
+    private final LlmClient geminiClient;
 
-    public AgentOrchestrator() {
-        this.geminiClient = new GeminiClient();
+    public AgentOrchestrator(LlmClient geminiClient) {
+        this.geminiClient = geminiClient;
     }
 
     public static class MigrationPlan {

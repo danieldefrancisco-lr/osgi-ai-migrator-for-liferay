@@ -1,10 +1,12 @@
 package io.github.danieldefrancisco_lr.migrator.tests;
 
-import io.github.danieldefrancisco_lr.migrator.agent.AgentOrchestrator;
-import io.github.danieldefrancisco_lr.migrator.agent.AgentOrchestrator.MigrationPlan;
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer;
-import io.github.danieldefrancisco_lr.migrator.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator;
+import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.output.MigrationReports;
 import io.github.danieldefrancisco_lr.migrator.ui.MigrationWizardDialog;
+import io.github.danieldefrancisco_lr.migrator.workspace.EclipseModuleSource;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -16,7 +18,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.stream.Stream;
 
 import org.eclipse.core.resources.IProject;
@@ -95,14 +96,11 @@ public class CharacterizationTest {
         try {
             IResource resource = selectedFolder == null ? project : project.getFolder(selectedFolder);
 
-            ModuleAnalysisResult analysis = LegacyModuleAnalyzer.analyzeResource(resource);
+            ModuleAnalysisResult analysis = LegacyModuleAnalyzer.analyze(new EclipseModuleSource(resource));
             golden.check("analysis.txt", Dumps.analysis(analysis));
 
-            AgentOrchestrator orchestrator = allocate(AgentOrchestrator.class);
-            RecordingGemini gemini = allocate(RecordingGemini.class);
-            gemini.calls = new TreeMap<>();
-            gemini.variant = responses;
-            setField(orchestrator, "geminiClient", gemini);
+            RecordingGemini gemini = new RecordingGemini(responses);
+            AgentOrchestrator orchestrator = new AgentOrchestrator(gemini);
             MigrationPlan plan = orchestrator.planAndGenerate(analysis, workspace.getRoot().getLocation().toOSString(), generateBackend);
 
             golden.check("calls.txt", String.join("\n", gemini.calls.keySet()) + "\n");
@@ -116,9 +114,9 @@ public class CharacterizationTest {
             setField(dialog, "targetResource", resource);
             setField(dialog, "analysisResult", analysis);
             setField(dialog, "currentPlan", plan);
-            golden.check("donatello-report.txt", (String) invoke(dialog, "buildDonatelloReport"));
-            golden.check("raphael-report.txt", (String) invoke(dialog, "buildRaphaelVerificationReport", plan));
-            golden.check("migration-report.md", (String) invoke(dialog, "generateMigrationMarkdownReport"));
+            golden.check("donatello-report.txt", MigrationReports.buildDonatelloReport(analysis));
+            golden.check("raphael-report.txt", MigrationReports.buildRaphaelVerificationReport(analysis, plan));
+            golden.check("migration-report.md", MigrationReports.generateMigrationMarkdownReport(analysis, plan));
 
             Set<String> before = Dumps.listFiles(fixtureCopy);
             List<String> messages = applyClosingMessageDialogs(dialog);
@@ -173,7 +171,7 @@ public class CharacterizationTest {
     }
 
     /**
-     * Creates an instance without running its constructor. The real constructors build a java.net.http.HttpClient,
+     * Creates an instance without running its constructor. The dialog's constructor builds a java.net.http.HttpClient,
      * which needs loopback sockets that some sandboxes block; these tests never talk to Gemini.
      */
     private static <T> T allocate(Class<T> type) throws Exception {

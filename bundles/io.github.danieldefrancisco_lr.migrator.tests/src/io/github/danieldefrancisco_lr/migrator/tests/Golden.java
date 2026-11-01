@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
  * Compares test output with the files in testdata/golden/<case>/, or rewrites them with -Dgolden.update=true.
  * Absolute paths under the temporary fixture copy are replaced with ${ROOT}, and CRLF with LF (the knowledge
  * files' line endings depend on the git checkout), so goldens are machine independent.
+ * Copy of the helper in core/src/test (the OSGi tests cannot use core's test classes); keep both in sync.
  */
 public class Golden {
 

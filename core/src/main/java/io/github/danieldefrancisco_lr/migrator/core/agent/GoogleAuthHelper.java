@@ -1,4 +1,4 @@
-package io.github.danieldefrancisco_lr.migrator.agent;
+package io.github.danieldefrancisco_lr.migrator.core.agent;
 
 import java.io.BufferedReader;
 import java.io.File;
