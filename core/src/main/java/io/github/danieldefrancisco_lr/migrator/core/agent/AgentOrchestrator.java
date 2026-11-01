@@ -65,6 +65,18 @@ public class AgentOrchestrator {
         String generationPlaybook = loadKnowledgeContent(rootDir, "playbooks/03-generation-rules.md");
         String batchTemplate = loadKnowledgeContent(rootDir, "schemas/batch-object-definition.template.json");
 
+        // Blueprints for the migration patterns found in this module; Leonardo applies them in the plan
+        StringBuilder blueprints = new StringBuilder();
+        if (generateBackendObjects && (analysis.hasServiceBuilder || !analysis.detectedEntities.isEmpty())) {
+            blueprints.append("\n\n").append(loadKnowledgeContent(rootDir, "blueprints/data-migration-strategy.md"));
+        }
+        if (!analysis.detectedNotifications.isEmpty()) {
+            blueprints.append("\n\n").append(loadKnowledgeContent(rootDir, "blueprints/notification-and-workflow-migration.md"));
+        }
+        if (analysis.hasTheme) {
+            blueprints.append("\n\n").append(loadKnowledgeContent(rootDir, "blueprints/theme-and-widget-template-migration.md"));
+        }
+
         // 3. Invoke Leonardo (Architect)
         String backendEntityGuidance = generateBackendObjects ?
             "USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. " + String.join(", ", analysis.detectedEntities) + "). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug])." :
@@ -72,7 +84,11 @@ public class AgentOrchestrator {
 
         String leonardoSystemInstruction = "You are Leonardo, the Lead Architect for modernizing legacy Liferay 7.x OSGi modules into modern Liferay Objects and Client Extensions.\n" +
             "The source platform is: " + analysis.sourceLiferayVersion + ".\n" +
-            "Rigorously follow the architectural mapping rules below:\n\n" + mappingPlaybook;
+            "Rigorously follow the architectural mapping rules below:\n\n" + mappingPlaybook +
+            (blueprints.length() == 0 ? "" :
+                "\n\n### MIGRATION BLUEPRINTS FOR THIS MODULE\n" +
+                "Apply these blueprints to the matching parts of the module. Where a blueprint asks for something the coders are not allowed to generate " +
+                "(e.g. Object Actions or notification templates as batch files), plan it as a manual post-migration step instead." + blueprints);
 
         String leonardoPrompt = "Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.\n" +
             backendEntityGuidance + "\n\n" +
