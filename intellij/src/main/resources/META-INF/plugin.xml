@@ -1,0 +1,36 @@
+<idea-plugin>
+    <id>io.github.danieldefrancisco_lr.migrator</id>
+    <name>OSGi AI Migrator for Liferay</name>
+    <vendor url="https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay">Daniel de Francisco</vendor>
+
+    <description><![CDATA[
+    <p>AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects and Client Extensions,
+    powered by Google Gemini (gcloud ADC, Vertex AI or Google AI Studio).</p>
+    <p>Right-click a module in the Project view and choose <b>OSGi AI Migrator &rarr; Migrate OSGi Module to Client
+    Extensions...</b> to run a 4-agent pipeline: Donatello analyzes the module, Leonardo designs the target
+    architecture, Michelangelo generates the Batch and React Custom Element client extensions, and Raphael verifies
+    the result before it is written to the Liferay workspace.</p>
+    <p>Configure Gemini in <b>Settings &rarr; Tools &rarr; OSGi AI Migrator for Liferay</b>.</p>
+    <p><i>Independent personal project. Not affiliated with, endorsed by, or supported by Liferay, Inc. Liferay and
+    Liferay DXP are trademarks of Liferay, Inc.</i></p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable parentId="tools"
+                                 id="io.github.danieldefrancisco_lr.migrator.settings"
+                                 instance="io.github.danieldefrancisco_lr.migrator.intellij.MigratorConfigurable"
+                                 displayName="OSGi AI Migrator for Liferay"/>
+    </extensions>
+
+    <actions>
+        <group id="io.github.danieldefrancisco_lr.migrator.menu" text="OSGi AI Migrator" popup="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <action id="io.github.danieldefrancisco_lr.migrator.migrateModule"
+                    class="io.github.danieldefrancisco_lr.migrator.intellij.MigrateModuleAction"
+                    text="Migrate OSGi Module to Client Extensions..."
+                    description="Analyze this legacy Liferay OSGi module and generate Liferay Objects and Client Extensions with Gemini"/>
+        </group>
+    </actions>
+</idea-plugin>

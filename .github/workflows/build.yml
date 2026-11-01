@@ -49,12 +49,22 @@ jobs:
         run: |
           set -o pipefail
           ./mvnw -v
-          xvfb-run -a ./mvnw -B clean verify 2>&1 | tee build.log
+          xvfb-run -a ./mvnw -B clean install 2>&1 | tee build.log
+
+      # Caches Gradle and the IntelliJ Platform the plugin compiles against
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Uses the core jar that the Maven build installed in the local repository
+      - name: Build IntelliJ plugin
+        working-directory: intellij
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon buildPlugin 2>&1 | tee -a ../build.log
 
       # Job logs need a signed-in user; annotations are visible to anyone
       - name: Report build errors as annotations
         if: failure()
-        run: grep -E '^\[ERROR\]' build.log | grep -v '^\[ERROR\] *$' | head -40 | sed 's/^/::error::/'
+        run: grep -E '^\[ERROR\]|^e: |error:|What went wrong|^> ' build.log | grep -v '^\[ERROR\] *$' | head -40 | sed 's/^/::error::/'
 
       - name: Upload golden mismatches
         if: failure()
@@ -63,6 +73,12 @@ jobs:
           name: golden-actual
           path: '**/target/golden-actual/'
           if-no-files-found: ignore
+
+      - name: Upload IntelliJ plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: intellij-plugin
+          path: intellij/build/distributions/*.zip
 
       - name: Upload CLI
         uses: actions/upload-artifact@v4
