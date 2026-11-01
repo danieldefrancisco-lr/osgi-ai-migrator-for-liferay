@@ -51,6 +51,20 @@ cd intellij && ./gradlew buildPlugin      # zip in intellij/build/distributions/
 
 `./gradlew runIde` starts a sandbox IDE with the plugin for testing.
 
+## Visual Studio Code
+
+The `vscode/` extension runs the bundled CLI, so it needs Java 17 or later (setting
+**OSGi AI Migrator: Java Home** if `java` on the PATH is older). Right-click a module folder in the Explorer and
+choose **Migrate OSGi Module to Client Extensions...**. Gemini settings are under **OSGi AI Migrator** in the
+VS Code settings; for AI Studio, run **OSGi AI Migrator: Set Gemini API Key** (kept in VS Code secret storage).
+Until it is on the Marketplace, install the `.vsix` with **Extensions → ... → Install from VSIX...**.
+
+To build it, run `./mvnw install` first (it builds the CLI jar), then:
+
+```
+cd vscode && npm install && npm run package   # .vsix in vscode/dist/
+```
+
 ## Command line
 
 The same migration runs from a terminal with the CLI, a single jar that needs Java 17 or later
@@ -143,6 +157,7 @@ releng/io.github.danieldefrancisco_lr.migrator.target      Target platform (Ecli
 releng/io.github.danieldefrancisco_lr.migrator.updatesite  p2 update site (category.xml)
 cli                                                   Command-line interface (runnable jar)
 intellij                                              IntelliJ Platform plugin (Gradle)
+vscode                                                VS Code extension (TypeScript), runs the CLI
 testdata                                              Test fixtures, canned Gemini answers and goldens
 ```
 
