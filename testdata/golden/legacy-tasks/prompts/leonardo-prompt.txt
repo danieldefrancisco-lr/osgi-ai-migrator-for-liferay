@@ -6,6 +6,12 @@ Determine:
 2. Required Batch Client Extension structure, ONLY if backend objects are requested.
 3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.
 4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).
+5. API CONTRACT (ALWAYS include it, even if backend objects are not generated): a section titled '## API CONTRACT' listing,
+   for each Liferay Object: its name (PascalCase, e.g. DevconRegistration), its externalReferenceCode, and its REST endpoint
+   '/o/c/' + the lowercase plural of the name with only letters and digits (e.g. '/o/c/devconregistrations');
+   for each Picklist: its externalReferenceCode and its entries URL
+   '/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries'.
+   The backend and frontend coders work in parallel and never see each other's files: this contract is the ONLY way they agree on names, codes and URLs.
 
 ### Legacy Module Analysis:
 Module Name: legacy-tasks

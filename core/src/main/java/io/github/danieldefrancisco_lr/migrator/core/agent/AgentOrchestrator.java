@@ -80,7 +80,13 @@ public class AgentOrchestrator {
             "1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.\n" +
             "2. Required Batch Client Extension structure, ONLY if backend objects are requested.\n" +
             "3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.\n" +
-            "4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).\n\n" +
+            "4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).\n" +
+            "5. API CONTRACT (ALWAYS include it, even if backend objects are not generated): a section titled '## API CONTRACT' listing,\n" +
+            "   for each Liferay Object: its name (PascalCase, e.g. DevconRegistration), its externalReferenceCode, and its REST endpoint\n" +
+            "   '/o/c/' + the lowercase plural of the name with only letters and digits (e.g. '/o/c/devconregistrations');\n" +
+            "   for each Picklist: its externalReferenceCode and its entries URL\n" +
+            "   '/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries'.\n" +
+            "   The backend and frontend coders work in parallel and never see each other's files: this contract is the ONLY way they agree on names, codes and URLs.\n\n" +
             legacyContext.toString();
 
         String blueprint;
@@ -121,7 +127,8 @@ public class AgentOrchestrator {
                 "5. NEVER include 'objectLayouts' or 'objectViews' inside ObjectDefinition items! Liferay creates layouts automatically.\n" +
                 "6. NEVER add inline 'options' inside objectFieldSettings! For dropdowns/select fields, generate a Picklist in 01-01 and reference it via 'listTypeDefinitionExternalReferenceCode'!\n" +
                 "7. In Picklist listTypeEntries: 'key' MUST be alphanumeric with NO spaces, underscores, or hyphens (e.g. 'inPerson', 'M').\n" +
-                "8. In client-extension.yaml, include scopes: Liferay.Headless.Batch.Engine.everything, Liferay.Object.Admin.REST.everything, Liferay.Headless.Admin.List.Type.everything.\n";
+                "8. In client-extension.yaml, include scopes: Liferay.Headless.Batch.Engine.everything, Liferay.Object.Admin.REST.everything, Liferay.Headless.Admin.List.Type.everything.\n" +
+                "9. Use EXACTLY the object names and the object and picklist externalReferenceCodes from the blueprint's API CONTRACT: the frontend calls them by those names.\n";
 
             String backendPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy Batch Client Extension files.\n" +
                 "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +
@@ -175,6 +182,8 @@ public class AgentOrchestrator {
                 "6. DO NOT import @clayui/* via npm! Use standard HTML elements with Liferay native Clay CSS classes (container, form-group, form-control, btn btn-primary, table table-autofit).\n" +
                 "7. In entity lists/tables: EVERY row MUST provide working onClick handlers for Edit and Delete (never an unwired static Actions button)!\n" +
                 "8. In src/services/liferayApi.js and src/App.js: Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with NO HYPHENS! (e.g. '/o/c/devconregistrations', NOT '/o/c/devcon-registrations').\n" +
+                "   Take every endpoint VERBATIM from the blueprint's API CONTRACT and declare it as a constant (e.g. const OBJECT_PATH = '/o/c/devconregistrations').\n" +
+                "   NEVER pass an externalReferenceCode (e.g. 'DEVCON_REGISTRATION') where a URL path is expected! Picklist URLs MUST start with '/o/headless-admin-list-type/v1.0/'.\n" +
                 "9. In src/services/liferayApi.js: Always use normalizeUrl(path) and merge 'Content-Type': 'application/json' and 'Accept': 'application/json'.\n" +
                 "10. If generating Page Fragments, put them in 'fragments/[collection-slug]/': collection.json, [fragment-slug]/fragment.json (with 'fragmentEntryKey'), index.html, index.css. Never in 'client-extensions/'!\n" +
                 "11. In React form state and API payloads: NEVER include 'status' (e.g. status: 0)! In Liferay Objects, status is a system-managed workflow state. Sending 'status' in POST/PUT causes 'Unable to map JSON path: status' HTTP 400 error! In liferayApi.js, createObjectEntry and updateObjectEntry MUST defensively strip 'status', 'id', 'creator', 'dateCreated', and 'dateModified' before sending!\n" +

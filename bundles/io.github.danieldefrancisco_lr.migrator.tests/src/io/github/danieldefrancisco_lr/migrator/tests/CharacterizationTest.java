@@ -70,6 +70,12 @@ public class CharacterizationTest {
         run("library-web-kubernetes-yaml", "gradle-workspace", "modules/library/library-web", null, true, "kubernetes-yaml");
     }
 
+    /** The React code calls the API with externalReferenceCodes and a URL without '/o/', which Raphael must flag. */
+    @Test
+    public void libraryWebErcAsPath() throws Exception {
+        run("library-web-erc-as-path", "gradle-workspace", "modules/library/library-web", null, true, "erc-as-path");
+    }
+
     @Test
     public void acmeTheme() throws Exception {
         run("acme-theme", "maven-workspace", "themes/acme-theme", null, false);

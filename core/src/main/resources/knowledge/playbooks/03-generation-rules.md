@@ -371,6 +371,7 @@ Liferay's portal theme **already loads Clay CSS & Bootstrap styles natively on t
 
 ### 3.7 CSRF-Safe API Service (`src/services/liferayApi.js`)
 *REST Endpoint Naming Rule:* Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with **NO HYPHENS**! For example, entity `DevconRegistration` has endpoint `/o/c/devconregistrations` (NOT `/o/c/devcon-registrations`). Always compute the endpoint by lowercasing the plural entity name and stripping all hyphens and spaces!
+Take the endpoints from the blueprint's **API CONTRACT** and keep them in constants (`const OBJECT_PATH = '/o/c/devconregistrations';`). Never pass an object's externalReferenceCode (e.g. `DEVCON_REGISTRATION`) as a path. Other Liferay APIs keep their full `/o/...` URL, e.g. picklist entries at `/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries`.
 
 ```javascript
 /* global Liferay */
@@ -380,11 +381,16 @@ function normalizeUrl(path) {
   if (cleaned.endsWith('/')) {
     cleaned = cleaned.substring(0, cleaned.length - 1);
   }
+  // Liferay Objects: /o/c/ + lowercase plural name, letters and digits only
   if (cleaned.startsWith('/o/c/')) {
-    const slug = cleaned.substring(5).replace(/-/g, '');
+    const slug = cleaned.substring(5).replace(/-/g, '').toLowerCase();
     return `/o/c/${slug}`;
   }
-  const slug = (cleaned.startsWith('/') ? cleaned.substring(1) : cleaned).replace(/-/g, '');
+  // Other Liferay APIs (e.g. /o/headless-admin-list-type/...) are used as they are
+  if (cleaned.startsWith('/o/')) {
+    return cleaned;
+  }
+  const slug = (cleaned.startsWith('/') ? cleaned.substring(1) : cleaned).replace(/-/g, '').toLowerCase();
   return `/o/c/${slug}`;
 }
 

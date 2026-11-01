@@ -7,11 +7,20 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Text reports of the Donatello (analysis) and Raphael (verification) agents, and the MIGRATION.md guide.
  */
 public class MigrationReports {
+
+    private static final String API_CALLS = "(?:getObjectEntries|getObjectEntry|createObjectEntry|updateObjectEntry|deleteObjectEntry|normalizeUrl|fetchWithAuth)";
+    /** An UPPER_SNAKE externalReferenceCode, e.g. DEVCON_REGISTRATION. */
+    private static final String ERC = "[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+";
+    private static final Pattern ERC_CONSTANT = Pattern.compile("(?:const|let|var)\\s+(\\w+)\\s*=\\s*['\"](" + ERC + ")['\"]");
+    private static final Pattern ERC_LITERAL_CALL = Pattern.compile(API_CALLS + "\\(\\s*['\"](" + ERC + ")['\"]");
+    private static final Pattern URL_WITHOUT_O_PREFIX = Pattern.compile("['\"`]/(?:headless-[\\w-]+|c)/");
 
     public static String buildDonatelloReport(ModuleAnalysisResult analysisResult) {
         StringBuilder sb = new StringBuilder();
@@ -95,6 +104,10 @@ public class MigrationReports {
                     warnings.add("Property 'localized' detected inside ObjectField item. Liferay ObjectField does not accept 'localized'; use root 'enableLocalization' instead.");
                 }
             }
+
+            if (path.endsWith(".js") || path.endsWith(".jsx")) {
+                checkApiPaths(path, content, warnings);
+            }
         }
 
         if (hasYaml) passes.add("Canonical client-extension.yaml present");
@@ -172,6 +185,26 @@ public class MigrationReports {
         }
 
         return sb.toString();
+    }
+
+    /** Flags frontend code that calls Liferay APIs with an externalReferenceCode or a URL missing '/o/'. */
+    private static void checkApiPaths(String path, String content, List<String> warnings) {
+        Matcher constants = ERC_CONSTANT.matcher(content);
+        while (constants.find()) {
+            String name = constants.group(1);
+            if (Pattern.compile(API_CALLS + "\\(\\s*" + Pattern.quote(name) + "\\b").matcher(content).find()) {
+                warnings.add(path + " passes externalReferenceCode '" + constants.group(2) + "' (" + name +
+                    ") as an API path; use the REST endpoint from the blueprint's API CONTRACT, e.g. '/o/c/<lowercase plural name>'.");
+            }
+        }
+        Matcher literals = ERC_LITERAL_CALL.matcher(content);
+        while (literals.find()) {
+            warnings.add(path + " passes externalReferenceCode '" + literals.group(1) +
+                "' as an API path; use the REST endpoint from the blueprint's API CONTRACT, e.g. '/o/c/<lowercase plural name>'.");
+        }
+        if (URL_WITHOUT_O_PREFIX.matcher(content).find()) {
+            warnings.add(path + " calls a Liferay API URL without the '/o/' prefix (e.g. '/headless-admin-list-type/...' instead of '/o/headless-admin-list-type/...').");
+        }
     }
 
     public static String generateMigrationMarkdownReport(ModuleAnalysisResult analysisResult, MigrationPlan currentPlan) {

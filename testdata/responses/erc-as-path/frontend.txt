@@ -1,0 +1,58 @@
+=== FILE: client-extensions/library-web-custom-element/client-extension.yaml ===
+assemble:
+    - from: build/static
+      into: static
+library-web-custom-element:
+    cssURLs:
+        - css/main.*.css
+    htmlElementName: library-web-custom-element
+    name: Library
+    type: customElement
+    urls:
+        - js/main.*.js
+=== END FILE ===
+
+=== FILE: client-extensions/library-web-custom-element/package.json ===
+{
+    "name": "library-web-custom-element",
+    "scripts": {"build": "react-scripts build", "start": "react-scripts start"}
+}
+=== END FILE ===
+
+=== FILE: src/App.js ===
+import { getObjectEntries, createObjectEntry } from './services/liferayApi';
+
+const OBJECT_ERC = 'LIBRARY_BOOK';
+const FORMAT_ERC = 'PL_BOOK_FORMAT';
+
+export default function App() {
+    const load = async () => {
+        const books = await getObjectEntries(OBJECT_ERC, '', 1, 1);
+        const formats = await getObjectEntries(
+            `/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/${FORMAT_ERC}/list-type-entries`
+        );
+        await createObjectEntry('LIBRARY_LOAN', {title: 'Dune'});
+        return [books, formats];
+    };
+    return <div className="container" onClick={load}>Library</div>;
+}
+=== END FILE ===
+
+=== FILE: fragments/library-fragments/collection.json ===
+{"name": "Library Fragments"}
+=== END FILE ===
+
+=== FILE: fragments/library-fragments/book-card/fragment.json ===
+{"fragmentEntryKey": "book-card", "htmlPath": "index.html", "name": "Book Card", "type": "component"}
+=== END FILE ===
+
+=== FILE: fragments/library-fragments/book-card/index.html ===
+<div class="book-card">${title}</div>
+=== END FILE ===
+
+=== FILE: book-card-v2/fragment.json ===
+{"fragmentEntryKey": "book-card-v2", "name": "Book Card V2"}
+=== END FILE ===
+
+=== FILE: "styles/theme.css" ===
+.book-card { color: red; }

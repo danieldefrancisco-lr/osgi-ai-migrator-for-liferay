@@ -1,0 +1,15 @@
+Success
+Raphael (Verifier): Successfully written modern artifacts to:
+${ROOT}/gradle-workspace
+
+Files created: 14
+
+Fragment Collections zipped and ready to import:
+  -> fragments/library-web-fragments.zip
+  -> fragments/library-fragments.zip
+
+Migration History & Action Checklist saved to:
+  -> docs/migrations/library-web-migration-report.md
+  -> client-extensions/book-object/MIGRATION.md
+  -> client-extensions/library-web-custom-element/MIGRATION.md
+

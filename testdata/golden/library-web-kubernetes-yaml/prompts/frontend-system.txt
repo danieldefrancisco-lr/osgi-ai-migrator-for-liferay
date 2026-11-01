@@ -374,6 +374,7 @@ Liferay's portal theme **already loads Clay CSS & Bootstrap styles natively on t
 
 ### 3.7 CSRF-Safe API Service (`src/services/liferayApi.js`)
 *REST Endpoint Naming Rule:* Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with **NO HYPHENS**! For example, entity `DevconRegistration` has endpoint `/o/c/devconregistrations` (NOT `/o/c/devcon-registrations`). Always compute the endpoint by lowercasing the plural entity name and stripping all hyphens and spaces!
+Take the endpoints from the blueprint's **API CONTRACT** and keep them in constants (`const OBJECT_PATH = '/o/c/devconregistrations';`). Never pass an object's externalReferenceCode (e.g. `DEVCON_REGISTRATION`) as a path. Other Liferay APIs keep their full `/o/...` URL, e.g. picklist entries at `/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries`.
 
 ```javascript
 /* global Liferay */
@@ -383,11 +384,16 @@ function normalizeUrl(path) {
   if (cleaned.endsWith('/')) {
     cleaned = cleaned.substring(0, cleaned.length - 1);
   }
+  // Liferay Objects: /o/c/ + lowercase plural name, letters and digits only
   if (cleaned.startsWith('/o/c/')) {
-    const slug = cleaned.substring(5).replace(/-/g, '');
+    const slug = cleaned.substring(5).replace(/-/g, '').toLowerCase();
     return `/o/c/${slug}`;
   }
-  const slug = (cleaned.startsWith('/') ? cleaned.substring(1) : cleaned).replace(/-/g, '');
+  // Other Liferay APIs (e.g. /o/headless-admin-list-type/...) are used as they are
+  if (cleaned.startsWith('/o/')) {
+    return cleaned;
+  }
+  const slug = (cleaned.startsWith('/') ? cleaned.substring(1) : cleaned).replace(/-/g, '').toLowerCase();
   return `/o/c/${slug}`;
 }
 
@@ -1006,6 +1012,8 @@ Converts FreeMarker ADTs (e.g. `ap-blog-presentation-template.ftl`) into a reusa
 6. DO NOT import @clayui/* via npm! Use standard HTML elements with Liferay native Clay CSS classes (container, form-group, form-control, btn btn-primary, table table-autofit).
 7. In entity lists/tables: EVERY row MUST provide working onClick handlers for Edit and Delete (never an unwired static Actions button)!
 8. In src/services/liferayApi.js and src/App.js: Liferay Objects REST endpoints are ALWAYS lowercase alphanumeric with NO HYPHENS! (e.g. '/o/c/devconregistrations', NOT '/o/c/devcon-registrations').
+   Take every endpoint VERBATIM from the blueprint's API CONTRACT and declare it as a constant (e.g. const OBJECT_PATH = '/o/c/devconregistrations').
+   NEVER pass an externalReferenceCode (e.g. 'DEVCON_REGISTRATION') where a URL path is expected! Picklist URLs MUST start with '/o/headless-admin-list-type/v1.0/'.
 9. In src/services/liferayApi.js: Always use normalizeUrl(path) and merge 'Content-Type': 'application/json' and 'Accept': 'application/json'.
 10. If generating Page Fragments, put them in 'fragments/[collection-slug]/': collection.json, [fragment-slug]/fragment.json (with 'fragmentEntryKey'), index.html, index.css. Never in 'client-extensions/'!
 11. In React form state and API payloads: NEVER include 'status' (e.g. status: 0)! In Liferay Objects, status is a system-managed workflow state. Sending 'status' in POST/PUT causes 'Unable to map JSON path: status' HTTP 400 error! In liferayApi.js, createObjectEntry and updateObjectEntry MUST defensively strip 'status', 'id', 'creator', 'dateCreated', and 'dateModified' before sending!
