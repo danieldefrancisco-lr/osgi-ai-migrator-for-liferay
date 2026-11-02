@@ -137,7 +137,9 @@ On Linux the Eclipse tests need a display; CI runs them with `xvfb-run`.
 All products share one version, taken from the Maven poms (the IntelliJ plugin and the VS Code
 extension read it from there in CI). Pushes to `main` and pull requests only build. Pushing a `v*` tag that
 matches that version publishes the Eclipse update site to GitHub Pages and creates a GitHub Release with the
-update site zip, the CLI jar, the IntelliJ plugin zip and the VS Code `.vsix`:
+update site zip, the CLI jar, the IntelliJ plugin zip and the VS Code `.vsix`. It also publishes to the
+JetBrains Marketplace, the VS Code Marketplace and Open VSX when the repository secrets `JETBRAINS_TOKEN`,
+`VSCE_PAT` and `OVSX_PAT` are set (each store is skipped otherwise):
 
 1. Set the new version, for example
    `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=3.3.0-SNAPSHOT`

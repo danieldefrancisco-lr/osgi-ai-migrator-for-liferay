@@ -86,6 +86,34 @@ jobs:
           npm test 2>&1 | tee -a ../build.log
           npm run package 2>&1 | tee -a ../build.log
 
+      # Marketplace publishing on release tags; each store is skipped until its token secret exists
+      - name: Publish to JetBrains Marketplace
+        if: env.RELEASE == 'true'
+        working-directory: intellij
+        env:
+          JETBRAINS_TOKEN: ${{ secrets.JETBRAINS_TOKEN }}
+        run: |
+          if [ -z "$JETBRAINS_TOKEN" ]; then echo "JETBRAINS_TOKEN not set, skipping"; exit 0; fi
+          ./gradlew --no-daemon publishPlugin
+
+      - name: Publish to VS Code Marketplace
+        if: env.RELEASE == 'true'
+        working-directory: vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then echo "VSCE_PAT not set, skipping"; exit 0; fi
+          npx vsce publish --packagePath dist/*.vsix
+
+      - name: Publish to Open VSX
+        if: env.RELEASE == 'true'
+        working-directory: vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then echo "OVSX_PAT not set, skipping"; exit 0; fi
+          npx --yes ovsx@0.10.1 publish dist/*.vsix
+
       # Job logs need a signed-in user; annotations are visible to anyone
       - name: Report build errors as annotations
         if: failure()

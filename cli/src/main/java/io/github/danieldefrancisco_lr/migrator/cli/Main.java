@@ -254,6 +254,7 @@ public class Main {
 
     private static String version() {
         String v = Main.class.getPackage().getImplementationVersion();
-        return v != null ? v : "dev";
+        // Releases are built from the -SNAPSHOT poms (Tycho adds a qualifier instead)
+        return v != null ? v.replace("-SNAPSHOT", "") : "dev";
     }
 }

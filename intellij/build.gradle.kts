@@ -36,6 +36,10 @@ java {
 
 intellijPlatform {
     buildSearchableOptions = false
+    // "./gradlew publishPlugin" uploads to the JetBrains Marketplace (CI passes the JETBRAINS_TOKEN secret)
+    publishing {
+        token = providers.environmentVariable("JETBRAINS_TOKEN")
+    }
     // "./gradlew verifyPlugin": oldest supported release, last Community edition, and the current unified IDEA
     // (from 2025.3 there is no separate Community download, which the "recommended" list does not know yet)
     pluginVerification {
