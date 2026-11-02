@@ -14,7 +14,7 @@ Legacy Context:
 ### Legacy Module Analysis:
 Module Name: library-service
 Source Liferay Platform Version: portal-7.3-ga1
-Entities Detected: Book, Author, ModelListener
+Entities Detected: Book, Author
 Portlets Detected: 
 Listeners Detected: BookModelListener.java
 Schedulers Detected: OverdueBooksScheduler.java

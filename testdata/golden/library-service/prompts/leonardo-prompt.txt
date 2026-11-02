@@ -1,5 +1,5 @@
 Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.
-USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. Book, Author, ModelListener). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug]).
+USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. Book, Author). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug]).
 
 Determine:
 1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.
@@ -16,7 +16,7 @@ Determine:
 ### Legacy Module Analysis:
 Module Name: library-service
 Source Liferay Platform Version: portal-7.3-ga1
-Entities Detected: Book, Author, ModelListener
+Entities Detected: Book, Author
 Portlets Detected: 
 Listeners Detected: BookModelListener.java
 Schedulers Detected: OverdueBooksScheduler.java

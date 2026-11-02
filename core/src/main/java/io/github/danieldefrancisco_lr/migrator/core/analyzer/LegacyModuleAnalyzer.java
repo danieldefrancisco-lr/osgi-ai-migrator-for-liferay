@@ -256,12 +256,38 @@ public class LegacyModuleAnalyzer {
         return null;
     }
 
+    /** Model packages of Liferay itself and its bundled apps (users, groups, assets, documents, web content...). */
+    private static final String[] LIFERAY_MODEL_PACKAGES = {
+        "com.liferay.portal.", "com.liferay.asset.", "com.liferay.document.library.", "com.liferay.dynamic.data.",
+        "com.liferay.journal.", "com.liferay.blogs.", "com.liferay.message.boards.", "com.liferay.wiki.",
+        "com.liferay.calendar.", "com.liferay.commerce.", "com.liferay.object.", "com.liferay.expando.",
+        "com.liferay.ratings.", "com.liferay.social.", "com.liferay.layout.", "com.liferay.trash." };
+
+    /**
+     * Whether an import is a Liferay platform type (e.g. com.liferay.portal.kernel.model.ModelListener or User)
+     * rather than one of the module's own Service Builder entities.
+     */
+    private static boolean isLiferayPlatformModel(String fullClassName) {
+        if (fullClassName.contains(".kernel.model.")) {
+            return true;
+        }
+        for (String prefix : LIFERAY_MODEL_PACKAGES) {
+            if (fullClassName.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void extractModelImports(String content, List<String> entities) {
         String[] lines = content.split("\n");
         for (String line : lines) {
             String trimmed = line.trim();
             if (trimmed.startsWith("import ") && trimmed.contains(".model.") && trimmed.endsWith(";")) {
                 String fullClassName = trimmed.substring(7, trimmed.length() - 1).trim();
+                if (isLiferayPlatformModel(fullClassName)) {
+                    continue;
+                }
                 String simpleName = fullClassName.substring(fullClassName.lastIndexOf('.') + 1);
                 if (!simpleName.isEmpty() && !simpleName.endsWith("Model") && !simpleName.endsWith("Wrapper") &&
                     !simpleName.endsWith("Soap") && !simpleName.startsWith("Base") &&

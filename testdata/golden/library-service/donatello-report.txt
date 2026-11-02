@@ -8,7 +8,7 @@ Liferay Workspace Root: ${ROOT}/gradle-workspace
 
 1. DOMAIN & SERVICE BUILDER:
    - Has service.xml: YES
-   - Entities Detected (3): Book, Author, ModelListener
+   - Entities Detected (2): Book, Author
 
 2. USER INTERFACE & PORTLETS:
    - Has JSP / Portlet: NO

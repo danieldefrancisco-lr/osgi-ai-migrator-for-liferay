@@ -5,7 +5,7 @@ sourceLiferayVersion: portal-7.3-ga1
 hasServiceBuilder: true
 hasJspPortlet: false
 hasTheme: false
-detectedEntities: [Book, Author, ModelListener]
+detectedEntities: [Book, Author]
 detectedPortlets: []
 detectedListeners: [BookModelListener.java]
 detectedSchedulers: [OverdueBooksScheduler.java]
