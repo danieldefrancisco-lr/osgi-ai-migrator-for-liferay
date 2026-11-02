@@ -4,6 +4,8 @@
 The Coder agent (Michelangelo) takes blueprints from Leonardo and generates production-ready, deployable source code into `/client-extensions/`:
 1. **Batch Client Extension**: Initializes Liferay Object folders, object definitions, and relationships upon deployment.
 2. **Custom Element Client Extension**: Standalone React/Clay UI component that replaces legacy JSP portlets.
+3. **Object Actions**: native actions and Notification Templates inside the Batch Client Extension, and Spring Boot `objectAction` client extensions for custom logic (section 4).
+4. **Look & Feel Client Extensions**: theme CSS, Style Book tokens, favicon and spritemap that replace a Theme WAR (sections 8 and 9).
 
 ---
 
@@ -221,7 +223,7 @@ Because Liferay Batch Engine processes files **alphabetically**, Michelangelo ge
 2. `01-01-[entity]-picklists.batch-engine-data.json` (ListTypeDefinition - executed first so picklists exist)
 3. `01-02-[entity]-definition.batch-engine-data.json` (ObjectDefinition - fields, required constraints, picklist links)
 
-*Note on Validations & Actions:* Do NOT generate separate batch files for validations or actions. Field constraints (e.g. required, unique) belong directly on `objectFields` inside `01-02`, form validations are handled in React, and email notifications are configured via Liferay Control Panel following `MIGRATION.md`!
+*Note on Validations & Actions:* Field constraints (e.g. required, unique) belong directly on `objectFields` inside `01-02`, and form validations are handled in React. Object Actions are NOT separate files: they go in the `objectActions` array of the object definition, and Notification Templates follow the file order of section 4.3. Give every object field its own `externalReferenceCode` (section 4.1).
 
 In `client-extension.yaml`, always declare all required headless scopes:
 ```yaml
@@ -543,100 +545,388 @@ function ListView({ items, onEdit, onDelete, onAdd }) {
 
 ## 4. Object Action Generation (Replacing Model Listeners / Service Wrappers / LMB)
 
-Depending on Leonardo's classification, Michelangelo either generates **Native Object Actions** inside the Batch Client Extension or creates a dedicated **Object Action Client Extension** microservice.
+Depending on Leonardo's classification, Michelangelo either declares **Native Object Actions** inside the Object Definition of the Batch Client Extension or also creates a dedicated **Object Action Client Extension** microservice. Every format in this section was validated on Liferay DXP 2026.q3.
 
-### 4.1 Native Object Action Generation (Batch JSON)
-When the action matches built-in Liferay capabilities (`updateObjectEntry`, `addObjectEntry`, `notification`, `webhook`), generate `batch/01-02-[entity-slug]-actions.batch-engine-data.json`:
+### 4.1 Rules That Apply to Every Object Action
+1. **Actions are nested in the Object Definition**: declare them in the `objectActions` array of the `ObjectDefinition` item. NEVER generate a standalone batch file with `className` `com.liferay.object.admin.rest.dto.v1_0.ObjectAction`.
+2. **Every object field and every object action has its own fixed `externalReferenceCode`** (e.g. `[OBJECT_ERC]_[FIELD_NAME_UPPER]`, `[OBJECT_ERC]_ACTION_[ACTION_NAME_UPPER]`). Liferay matches fields and actions by ERC when the batch is deployed again: without one it generates a random ERC, and the next deployment fails with `ObjectFieldNameException$MustNotBeDuplicate`.
+3. **The trigger and the name are fixed once the object is published**: on an approved object, Liferay silently ignores changes to `objectActionTriggerKey` and `name` of an existing action. To change them, create a new action (new `name` and new `externalReferenceCode`) and tell the administrator in `MIGRATION.md` to delete the old one.
+4. **Triggers**: `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, or `standalone` (run by a user from the entry's menu). Actions run **after** the entry is saved, so a legacy `onBeforeCreate` / `onBeforeUpdate` cannot be ported as is:
+   - validation logic (`onBefore*` throwing a `ModelListenerException`) becomes an **Object Validation** (see 2.5 rule 5);
+   - logic that changes the entry becomes an `update-object-entry` action or an `onAfter*` microservice action that updates the entry through the REST API, noted in `MIGRATION.md`.
+5. `update-object-entry` cannot use the `onAfterDelete` trigger.
+
+### 4.2 Native Object Actions (inside the Object Definition)
+Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-entry` and `function#[client-extension-id]` for a microservice (4.4). Do not generate `groovy` actions: Groovy scripting is disabled on Liferay SaaS and in many installations.
 
 ```json
 {
   "configuration": {
-    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectAction",
+    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition",
     "parameters": {
+      "containsHeaders": "true",
       "createStrategy": "UPSERT",
+      "importStrategy": "ON_ERROR_FAIL",
       "updateStrategy": "UPDATE"
-    }
+    },
+    "taskItemDelegateName": "DEFAULT"
   },
   "items": [
     {
-      "active": true,
-      "description": "Send notification or update entry on creation",
-      "externalReferenceCode": "ACTION_[ENTITY]_[ACTION_NAME_UPPER]",
-      "label": {
-        "en_US": "Notify on Entry Add"
-      },
-      "name": "[actionName]",
-      "objectActionExecutorKey": "notification",
-      "objectActionTriggerKey": "onAfterAdd",
-      "objectDefinitionExternalReferenceCode": "OBJ_[ENTITY_NAME_UPPER]",
-      "parameters": {
-        "notificationTemplateExternalReferenceCode": "TEMPLATE_USER_NOTIFICATION"
-      }
-    },
-    {
-      "active": true,
-      "description": "Trigger external webhook on record update",
-      "externalReferenceCode": "ACTION_[ENTITY]_WEBHOOK_SYNC",
-      "label": {
-        "en_US": "Webhook Outbound Sync"
-      },
-      "name": "outboundSyncWebhook",
-      "objectActionExecutorKey": "webhook",
-      "objectActionTriggerKey": "onAfterUpdate",
-      "objectDefinitionExternalReferenceCode": "OBJ_[ENTITY_NAME_UPPER]",
-      "parameters": {
-        "url": "https://api.external-system.com/webhook",
-        "secret": "optional-shared-secret"
-      }
+      "externalReferenceCode": "[OBJECT_ERC]",
+      "name": "[ObjectName]",
+      "objectFields": [
+        {
+          "DBType": "String",
+          "businessType": "Text",
+          "externalReferenceCode": "[OBJECT_ERC]_TICKET_STATUS",
+          "indexed": false,
+          "indexedAsKeyword": false,
+          "label": {"en_US": "Ticket Status"},
+          "name": "ticketStatus",
+          "required": false,
+          "type": "String"
+        }
+      ],
+      "objectActions": [
+        {
+          "active": true,
+          "conditionExpression": "",
+          "description": "Replaces [LegacyClass].onAfterCreate e-mail",
+          "externalReferenceCode": "[OBJECT_ERC]_ACTION_SEND_CONFIRMATION_EMAIL",
+          "label": {"en_US": "Send Confirmation Email"},
+          "name": "sendConfirmationEmail",
+          "objectActionExecutorKey": "notification",
+          "objectActionTriggerKey": "onAfterAdd",
+          "parameters": {
+            "notificationTemplateExternalReferenceCode": "[TEMPLATE_ERC]",
+            "type": "email"
+          }
+        },
+        {
+          "active": true,
+          "conditionExpression": "",
+          "description": "Replaces the status set in [LegacyClass].onAfterCreate",
+          "externalReferenceCode": "[OBJECT_ERC]_ACTION_MARK_AS_RECEIVED",
+          "label": {"en_US": "Mark as Received"},
+          "name": "markAsReceived",
+          "objectActionExecutorKey": "update-object-entry",
+          "objectActionTriggerKey": "onAfterAdd",
+          "parameters": {
+            "objectDefinitionExternalReferenceCode": "[OBJECT_ERC]",
+            "predefinedValues": [
+              {"inputAsValue": true, "name": "ticketStatus", "value": "received"}
+            ]
+          }
+        },
+        {
+          "active": true,
+          "conditionExpression": "",
+          "description": "Replaces the HTTP call in [LegacyClass].onAfterUpdate",
+          "externalReferenceCode": "[OBJECT_ERC]_ACTION_SYNC_WEBHOOK",
+          "label": {"en_US": "Sync Webhook"},
+          "name": "syncWebhook",
+          "objectActionExecutorKey": "webhook",
+          "objectActionTriggerKey": "onAfterUpdate",
+          "parameters": {
+            "secret": "",
+            "url": "https://[external-system]/webhook"
+          }
+        }
+      ]
     }
   ]
 }
 ```
+(The other object properties are the ones in 2.4.)
 
-*Supported `objectActionExecutorKey` values:*
-- `"notification"`: Triggers an in-app or email notification.
-- `"webhook"`: Dispatches the event JSON directly to a URL.
-- `"updateObjectEntry"`: Updates values in the current or related Object entry.
-- `"addObjectEntry"`: Creates a new entry in a related or target Object.
+*Parameters by executor:*
+- `notification`: `notificationTemplateExternalReferenceCode` and `type` (`email` or `userNotification`). The template must exist before the action (4.3).
+- `update-object-entry` and `add-object-entry`: `objectDefinitionExternalReferenceCode` is **mandatory** (the object to write to; without it the import fails with `ObjectActionParametersException`), plus `predefinedValues`: `{"name": [field], "value": [value or expression], "inputAsValue": true}` (`inputAsValue: false` evaluates `value` as an expression). Fields must exist and must not be localized; `add-object-entry` must set every required field of the target object.
+- `webhook`: `url` (mandatory) and `secret`.
+- `conditionExpression`: optional Liferay expression (e.g. `ticketStatus == "open"`); legacy `if` checks around the logic go here.
 
----
+### 4.3 Notification Templates and File Order
+A legacy e-mail (`MailServiceUtil`, `MailMessage`, `SubscriptionSender`) becomes a **Notification Template** created by the same Batch Client Extension:
 
-### 4.2 Custom Object Action Client Extension (Microservice)
-When complex algorithms, proprietary libraries, or multi-step external orchestrations are required, Michelangelo scaffolds a dedicated microservice:
-
-#### 4.2.1 `client-extension.yaml` Definition
-```yaml
-[entity-slug]-action:
-  name: "[Entity Name] Action Handler"
-  type: objectAction
-  oAuthApplicationHeadlessServer: [entity-slug]-action-oauth
-  resourcePath: /api/action
-
-[entity-slug]-action-oauth:
-  name: "[Entity Name] Action OAuth"
-  type: oAuthApplicationHeadlessServer
-  .serviceAddress: localhost:8080
-  .serviceScheme: http
-  scopes:
-    - Liferay.Object.Admin.REST.everything
-```
-
-#### 4.2.2 Action Payload Contract (Spring Boot / Node.js Microservice)
 ```json
 {
-  "companyId": 20101,
-  "entryDTO": {
-    "id": 1001,
-    "externalReferenceCode": "EMP_1001",
-    "values": {
-      "fullName": "John Doe",
-      "email": "john.doe@company.com"
-    }
+  "configuration": {
+    "className": "com.liferay.notification.rest.dto.v1_0.NotificationTemplate",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "importStrategy": "ON_ERROR_FAIL",
+      "updateStrategy": "UPDATE"
+    },
+    "taskItemDelegateName": "DEFAULT"
   },
-  "model": "com.liferay.object.model.ObjectDefinition#[id]",
-  "transitionName": "onAfterAdd"
+  "items": [
+    {
+      "externalReferenceCode": "[TEMPLATE_ERC]",
+      "name": "[Object Label] Created",
+      "description": "Replaces the e-mail sent by [LegacyClass]",
+      "type": "email",
+      "editorType": "richText",
+      "recipientType": "email",
+      "objectDefinitionExternalReferenceCode": "[OBJECT_ERC]",
+      "subject": {"en_US": "Ticket [%[OBJECTNAME]_TITLE%] received"},
+      "body": {"en_US": "<p>Hello,</p><p>We received your ticket <strong>[%[OBJECTNAME]_TITLE%]</strong>.</p>"},
+      "recipients": [
+        {
+          "from": "noreply@[company-domain]",
+          "fromName": {"en_US": "[Sender Name]"},
+          "to": {"en_US": "[%[OBJECTNAME]_REQUESTEREMAIL%]"}
+        }
+      ]
+    }
+  ]
 }
 ```
+*Term syntax:* `[%` + object name in UPPERCASE without separators + `_` + field name in UPPERCASE without separators + `%]` (object `OamSpikeTicket`, field `requesterEmail` → `[%OAMSPIKETICKET_REQUESTEREMAIL%]`). Port the legacy subject and body text into these terms.
+
+The template needs the object, and the notification action needs the template, so the object definition is sent twice, in this file order (continuing the numbering of 2.7):
+1. `01-02-[entity]-definition.batch-engine-data.json`: the object with its fields and **without** notification actions (other native actions may already be here).
+2. `01-03-[entity]-notification-template.batch-engine-data.json`: the Notification Template(s) of that object.
+3. `01-04-[entity]-actions.batch-engine-data.json`: the **same** object definition again (same ERC, same fields with the same field ERCs) now including all its `objectActions`. UPSERT updates the object and adds the actions.
+Objects without notifications declare their actions directly in `01-02` and have no `01-03` / `01-04`.
+
+`client-extension.yaml` scopes for a batch with notifications: `Liferay.Headless.Batch.Engine.everything`, `Liferay.Object.Admin.REST.everything`, `Liferay.Notification.REST.everything` (plus `Liferay.Headless.Admin.List.Type.everything` for picklists).
+E-mails are only delivered when Liferay has an SMTP server and a sender address configured: list that in `MIGRATION.md`.
+
+### 4.4 Object Action Client Extension (Spring Boot Microservice)
+When the legacy logic cannot be expressed with native actions (calls to external systems with custom logic, calculations, proprietary libraries, several steps), Michelangelo ports it to a **Spring Boot** microservice: an `objectAction` client extension plus an action with `"objectActionExecutorKey": "function#[action-cx-id]"` in the object definition.
+
+#### 4.4.1 Layout (`client-extensions/[logic-slug]-object-action/`)
+```
+client-extensions/[logic-slug]-object-action/
+├── client-extension.yaml
+├── build.gradle
+├── Dockerfile
+├── LCP.json
+└── src/main/
+    ├── java/[package]/
+    │   ├── [Name]Application.java
+    │   └── [Name]ObjectActionRestController.java
+    └── resources/
+        ├── application.properties
+        └── application-default.properties
+```
+`Dockerfile` and `LCP.json` are **mandatory**: the workspace build (`createClientExtensionConfig`) fails without them.
+
+#### 4.4.2 `client-extension.yaml`
+```yaml
+assemble:
+    - fromTask: bootJar
+
+[logic-slug]-oauth-application-user-agent:
+    .serviceAddress: localhost:[port]
+    .serviceScheme: http
+    name: [Logic Name] OAuth Application User Agent
+    scopes:
+        - Liferay.Headless.Admin.User.everything.read
+    type: oAuthApplicationUserAgent
+
+[logic-slug]-object-action:
+    name: [Logic Name] Object Action
+    oAuth2ApplicationExternalReferenceCode: [logic-slug]-oauth-application-user-agent
+    resourcePath: /object/action/[logic-slug]
+    type: objectAction
+```
+- The action in the object definition uses `"objectActionExecutorKey": "function#[logic-slug]-object-action"` (the id of the `objectAction` entry).
+- Add to `scopes` the Liferay APIs the ported logic calls (e.g. `Liferay.Object.REST.everything` to update the entry or other objects).
+- `[port]`: one port per microservice, starting at 58081 and incremented for each microservice in the same migration; use the same value in `.serviceAddress`, `server.port` and `LCP.json`.
+- **`.serviceAddress` is where Liferay reaches the microservice, and it depends on how Liferay runs.** Always generate `localhost:[port]` (Liferay bundle and microservice on the same machine) and list in `MIGRATION.md` how to change it (see 4.4.6). Never hard-code `host.docker.internal` or a cloud host name.
+
+#### 4.4.3 `build.gradle`
+```groovy
+buildscript {
+	dependencies {
+		classpath group: "org.springframework.boot", name: "spring-boot-gradle-plugin", version: "3.3.5"
+	}
+
+	repositories {
+		maven {
+			url "https://repository-cdn.liferay.com/nexus/content/groups/public"
+		}
+
+		mavenCentral()
+	}
+}
+
+apply plugin: "java-library"
+apply plugin: "org.springframework.boot"
+
+dependencies {
+	implementation group: "com.liferay", name: "com.liferay.client.extension.util.spring.boot3", version: "latest.release"
+	implementation group: "org.springframework.boot", name: "spring-boot-starter-actuator", version: "3.3.5"
+	implementation group: "org.springframework.boot", name: "spring-boot-starter-oauth2-resource-server", version: "3.3.5"
+	implementation group: "org.springframework.boot", name: "spring-boot-starter-web", version: "3.3.5"
+}
+
+repositories {
+	maven {
+		url "https://repository-cdn.liferay.com/nexus/content/groups/public"
+	}
+
+	mavenCentral()
+}
+```
+Add the libraries the legacy logic needs (with explicit versions). Never add `portal-kernel` or other OSGi APIs: the microservice talks to Liferay only through the REST APIs.
+
+#### 4.4.4 `Dockerfile`, `LCP.json` and properties
+`Dockerfile`:
+```
+FROM liferay/jar-runner:latest
+
+COPY --chown=liferay:liferay *.jar /opt/liferay/jar-runner.jar
+```
+`LCP.json` (used when the microservice is deployed to Liferay SaaS / PaaS):
+```json
+{
+	"cpu": 1,
+	"env": {
+		"LIFERAY_ROUTES_CLIENT_EXTENSION": "/etc/liferay/lxc/ext-init-metadata",
+		"LIFERAY_ROUTES_DXP": "/etc/liferay/lxc/dxp-metadata"
+	},
+	"environments": {
+		"infra": {
+			"deploy": false
+		}
+	},
+	"id": "__PROJECT_ID__",
+	"kind": "Deployment",
+	"livenessProbe": {
+		"httpGet": {
+			"path": "/actuator/health",
+			"port": [port]
+		}
+	},
+	"loadBalancer": {
+		"targetPort": [port]
+	},
+	"memory": 512,
+	"readinessProbe": {
+		"httpGet": {
+			"path": "/actuator/health",
+			"port": [port]
+		}
+	},
+	"scale": 1
+}
+```
+`src/main/resources/application.properties` (loads the routes the platform mounts when the microservice runs in Liferay SaaS / PaaS; locally they do not exist and the defaults apply):
+```properties
+spring.config.import=\
+    classpath:/application-default.properties,\
+    optional:configtree:${LIFERAY_ROUTES_CLIENT_EXTENSION}/,\
+    optional:configtree:${LIFERAY_ROUTES_DXP}/
+```
+`src/main/resources/application-default.properties` (local defaults: where the microservice reaches Liferay, see 4.4.6):
+```properties
+com.liferay.lxc.dxp.domains=localhost:8080
+com.liferay.lxc.dxp.mainDomain=localhost:8080
+com.liferay.lxc.dxp.server.protocol=http
+
+liferay.oauth.application.external.reference.codes=[logic-slug]-oauth-application-user-agent
+liferay.oauth.urls.excludes=/actuator/health/**
+
+server.port=[port]
+```
+
+#### 4.4.5 Java Sources
+```java
+package [package];
+
+import com.liferay.client.extension.util.spring.boot3.ClientExtensionUtilSpringBootComponentScan;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Import;
+
+@Import(ClientExtensionUtilSpringBootComponentScan.class)
+@SpringBootApplication
+public class [Name]Application {
+
+	public static void main(String[] args) {
+		SpringApplication.run([Name]Application.class, args);
+	}
+
+}
+```
+```java
+package [package];
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.liferay.client.extension.util.spring.boot3.BaseRestController;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RequestMapping("/object/action/[logic-slug]")
+@RestController
+public class [Name]ObjectActionRestController extends BaseRestController {
+
+	@PostMapping
+	public ResponseEntity<String> post(@AuthenticationPrincipal Jwt jwt, @RequestBody String json) throws Exception {
+		log(jwt, _log, json);
+
+		JsonNode payload = _objectMapper.readTree(json);
+
+		String trigger = payload.path("objectActionTriggerKey").asText();
+		JsonNode values = payload.path("objectEntry").path("values");
+		JsonNode originalValues = payload.path("originalObjectEntry").path("values"); // missing unless onAfterUpdate
+
+		// [Logic ported from [LegacyClass].[method]]
+
+		return new ResponseEntity<>(json, HttpStatus.OK);
+	}
+
+	private static final ObjectMapper _objectMapper = new ObjectMapper();
+
+	private static final Log _log = LogFactory.getLog([Name]ObjectActionRestController.class);
+
+}
+```
+Read fields with `values.path("[fieldName]").asText()`. For calls back to Liferay, use the REST API of the object (`/o/c/[objects]`) with the scopes added in 4.4.2.
+
+#### 4.4.6 Payload Contract (validated)
+Liferay POSTs this JSON to `resourcePath` with a JWT (`Authorization: Bearer`) that `BaseRestController` validates:
+
+| Key | Content | Legacy equivalent |
+|---|---|---|
+| `objectActionTriggerKey` | `onAfterAdd`, `onAfterUpdate`, `onAfterDelete` | which `ModelListener` method fired; one endpoint can serve several triggers |
+| `objectEntry.values` | the entry's fields by name (`{"orderNumber": "0001", ...}`) | `model.getXxx()` |
+| `objectEntry.objectEntryId`, `objectEntry.externalReferenceCode` | id and ERC of the entry | primary key |
+| `originalObjectEntry.values` | the fields **before** the update (only `onAfterUpdate`) | `originalModel` in `onAfterUpdate(originalModel, model)` |
+| `objectEntryDTO[ObjectName]` / `originalObjectEntryDTO[ObjectName]` | the same entry in REST format (`properties`, `creator`, `dateModified` as epoch millis) | — |
+| `classPK`, `companyId`, `objectDefinitionId` | ids | `model.getPrimaryKey()`, `getCompanyId()` |
+| `userId`, `userName`, `userExternalReferenceCode`, `preferredLanguageId` | the user who made the change | `serviceContext.getUserId()` |
+
+Date fields inside `objectEntry` (`modifiedDate`, `statusDate`) change format between triggers: never parse them; use `dateModified` from the DTO.
+
+#### 4.4.7 Running It (for `MIGRATION.md`)
+The microservice runs outside Liferay. How Liferay and the microservice reach each other depends on the environment, so `MIGRATION.md` MUST include this table, filled in with the generated client extension ids and port:
+
+| How Liferay runs | Start the microservice | `.serviceAddress` in `client-extension.yaml` (Liferay → microservice) | `com.liferay.lxc.dxp.*` in `application-default.properties` (microservice → Liferay) |
+|---|---|---|---|
+| Local bundle (Tomcat, `blade server start`, Liferay Developer Studio) | `blade gw :client-extensions:[cx]:bootRun` | `localhost:[port]` (generated) | `localhost:8080` (generated) |
+| Docker (`docker run`, Docker Compose, Liferay Workspace `startDockerContainer`), microservice on the host | `bootRun` on the host | `host.docker.internal:[port]` (on Linux, start the container with `--add-host=host.docker.internal:host-gateway`) | `localhost:8080` (the published port) |
+| Docker Compose, microservice as another service built from its `Dockerfile` | `docker compose up` | `[service-name]:[port]` | `[liferay-service-name]:8080` |
+| Remote Liferay (another server) | on a host Liferay can reach | `[that-host]:[port]` (and `.serviceScheme: https` if it is behind TLS) | the Liferay host and port, with `server.protocol=https` if needed |
+| Liferay SaaS / PaaS | deploy the client extension zip (built from `Dockerfile` and `LCP.json`) | set by the platform | set by the platform through the mounted routes (`application.properties`) |
+
+Deployment order: deploy the microservice client extension first (it registers the `objectAction` and its OAuth application), start the microservice, then deploy the Batch Client Extension whose object references `function#[logic-slug]-object-action`. The microservice must be running before entries are created.
 
 ---
 
@@ -772,20 +1062,47 @@ public class [TaskName]DispatchTaskExecutor extends BaseDispatchTaskExecutor {
 When Leonardo blueprints a Look & Feel modernization, Michelangelo generates the corresponding client extension project under `/client-extensions/`:
 
 ### 8.1 Theme CSS Client Extension (`type: themeCSS`)
-Replaces legacy Theme WAR styles and exposes Style Book design tokens:
+Replaces the styles of a legacy Theme WAR. The Liferay workspace compiles the SCSS under `src/css/` on top of a Clay base theme (`liferayDesignPack` in `package.json`) and produces `css/clay.css` and `css/main.css`:
+```
+client-extensions/[brand-slug]-theme/
+├── client-extension.yaml
+├── package.json
+├── assets/images/          (favicon.ico, icons.svg: binary files are copied from the legacy theme, see 8.4)
+└── src/
+    ├── frontend-token-definition.json
+    └── css/
+        ├── _clay_variables.scss
+        └── _custom.scss
+```
+`package.json`:
+```json
+{
+	"liferayDesignPack": {
+		"baseTheme": "styled"
+	},
+	"main": "package.json",
+	"name": "[brand-slug]-theme",
+	"private": true,
+	"version": "1.0.0"
+}
+```
+`client-extension.yaml`:
 ```yaml
 assemble:
-  - from: build/css
-    into: static/css
+    - from: assets
+      into: static
 
 [brand-slug]-theme-css:
-  name: "[Brand Name] Theme CSS"
-  type: themeCSS
-  clayURL: static/css/clay.css
-  mainURL: static/css/main.css
-  frontendTokenDefinitionJSON: frontend-token-definition.json
-  scope: layout # or controlPanel
+    clayURL: css/clay.css
+    frontendTokenDefinitionJSON: src/frontend-token-definition.json
+    mainURL: css/main.css
+    name: [Brand Name] Theme CSS
+    type: themeCSS
 ```
+*Rules:*
+- `src/css/_clay_variables.scss`: the legacy theme's Bootstrap / Clay variables (`$primary`, `$font-family-base`, ...). They restyle the whole page, **including Liferay's control and product menus shown on it**: carry over only the variables the legacy theme really changed, and list that side effect in `MIGRATION.md`.
+- `src/css/_custom.scss`: the legacy `_custom.scss` rules, **scoped under `#wrapper`** (the page content) so they do not leak into Liferay's menus. NEVER style `body`, `html` or bare element selectors at the top level.
+- Brand colors and fonts the site editors should change go to Style Book tokens (9.1) and are used as CSS variables (`var(--brand-color-1)`).
 
 ### 8.2 Global CSS Client Extension (`type: globalCSS`)
 Injects styling across pages without replacing the theme:
@@ -820,22 +1137,20 @@ assemble:
 ```
 
 ### 8.4 Theme Favicon & Spritemap Client Extensions
-Overrides site favicons or Clay SVG icon maps:
+Overrides the site favicon or the Clay SVG icon set. The files are **binary or large assets copied from the legacy theme** (`images/favicon.ico`, `images/clay/icons.svg` or `images/lexicon/icons.svg`) into `assets/images/`; never generate their content:
 ```yaml
-assemble:
-  - from: images
-    into: static/images
+[brand-slug]-theme-favicon:
+    name: [Brand Name] Favicon
+    type: themeFavicon
+    url: images/favicon.ico
 
-[brand-slug]-favicon:
-  name: "[Brand Name] Favicon"
-  type: themeFavicon
-  url: static/images/favicon.ico
-
-[brand-slug]-spritemap:
-  name: "[Brand Name] Icon Spritemap"
-  type: themeSpritemap
-  url: static/images/icons.svg
+[brand-slug]-theme-spritemap:
+    name: [Brand Name] Icon Spritemap
+    type: themeSpritemap
+    url: images/icons.svg
 ```
+They go in the same client extension as the theme CSS (8.1), which already assembles `assets` into `static`.
+*Spritemap warning:* a `themeSpritemap` **replaces** the whole Clay icon set on the pages where it is applied. Generate it only when the legacy theme shipped its own complete `icons.svg`, and tell the administrator in `MIGRATION.md` to try it on a test page first.
 
 ### 8.5 Editor Config Contributor Client Extension (`type: editorConfigContributor`)
 Replaces legacy Java `EditorConfigContributor` components:
@@ -881,58 +1196,40 @@ Replaces legacy IFrame portlets or portlets wrapping external applications:
 
 When Michelangelo decomposes a Theme WAR or Widget Template (ADT), the following artifacts are generated:
 
-### 9.1 Style Book Design Tokens (`frontend-token-definition.json`)
-Extracted from `_clay_variables.scss` and `partials/variables/_colors.scss`:
+### 9.1 Style Book Design Tokens (`src/frontend-token-definition.json`)
+Extracted from `_clay_variables.scss` and `partials/variables/_colors.scss`. Each token becomes a CSS variable (`mappings`) the theme CSS and fragments use, and site editors change it in a Style Book:
 ```json
 {
-  "frontendTokenCategories": [
-    {
-      "name": "Brand Colors",
-      "frontendTokenSets": [
-        {
-          "name": "Theme Colors",
-          "frontendTokens": [
-            {
-              "label": "Primary Color",
-              "name": "primary",
-              "type": "Color",
-              "value": "#0B5FFF"
-            },
-            {
-              "label": "Secondary Color",
-              "name": "secondary",
-              "type": "Color",
-              "value": "#6B6C7E"
-            },
-            {
-              "label": "Dark Background",
-              "name": "dark",
-              "type": "Color",
-              "value": "#272833"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Typography",
-      "frontendTokenSets": [
-        {
-          "name": "Fonts",
-          "frontendTokens": [
-            {
-              "label": "Font Family Base",
-              "name": "fontFamilyBase",
-              "type": "FontFamily",
-              "value": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
-            }
-          ]
-        }
-      ]
-    }
-  ]
+	"frontendTokenCategories": [
+		{
+			"frontendTokenSets": [
+				{
+					"frontendTokens": [
+						{
+							"defaultValue": "#0d9488",
+							"editorType": "ColorPicker",
+							"label": "brand-color-1",
+							"mappings": [
+								{
+									"type": "cssVariable",
+									"value": "brand-color-1"
+								}
+							],
+							"name": "brandColor1",
+							"type": "String"
+						}
+					],
+					"label": "brand-colors",
+					"name": "brandColors"
+				}
+			],
+			"label": "colors",
+			"name": "colors"
+		}
+	]
 }
 ```
+*Rules:* `name` is camelCase letters and digits; `mappings[].value` is the CSS variable name without `--`; colors use `"editorType": "ColorPicker"` and `"type": "String"`.
 
 ### 9.2 Header & Footer Page Fragments (from `header.ftl` & `footer.ftl`)
 Placed into a fragment collection (e.g. `src/fragments/theme-fragments/`):

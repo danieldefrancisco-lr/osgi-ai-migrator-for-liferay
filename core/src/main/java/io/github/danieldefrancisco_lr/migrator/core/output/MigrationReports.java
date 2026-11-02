@@ -90,6 +90,17 @@ public class MigrationReports {
                     content.startsWith("spec:") || content.contains("\nspec:")) {
                     warnings.add(path + " uses a Kubernetes-style format (apiVersion/kind/metadata/spec). Liferay expects top-level 'assemble' and client extension id keys; 'blade gw build' fails with 'TextNode cannot be cast to ObjectNode'.");
                 }
+                if (content.contains("type: objectAction")) {
+                    String dir = path.substring(0, path.length() - "client-extension.yaml".length());
+                    for (String required : new String[] {"Dockerfile", "LCP.json"}) {
+                        if (!plan.generatedFiles.containsKey(dir + required)) {
+                            warnings.add(path + " is a microservice client extension without " + dir + required + "; the workspace build fails with 'Required file \"" + required + "\" not found'.");
+                        }
+                    }
+                }
+                if (content.contains("host.docker.internal")) {
+                    warnings.add(path + " hard-codes host.docker.internal; generate localhost and document the other environments in MIGRATION.md.");
+                }
             }
 
             if (path.endsWith(".batch-engine-data.json")) {
@@ -105,10 +116,15 @@ public class MigrationReports {
                 if (content.contains("\"localized\":")) {
                     warnings.add("Property 'localized' detected inside ObjectField item. Liferay ObjectField does not accept 'localized'; use root 'enableLocalization' instead.");
                 }
+                checkObjectActions(path, content, plan, warnings);
             }
 
             if (path.endsWith(".js") || path.endsWith(".jsx")) {
                 checkApiPaths(path, content, warnings);
+            }
+
+            if (path.endsWith("_custom.scss") && Pattern.compile("(?m)^(?:body|html)\\b[^{]*\\{").matcher(content).find()) {
+                warnings.add(path + " styles body/html at the top level, which also restyles Liferay's menus; scope the rules under #wrapper.");
             }
         }
 
@@ -131,7 +147,28 @@ public class MigrationReports {
 
         sb.append("POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:\n\n");
         sb.append("1. DEPLOY CLIENT EXTENSIONS:\n");
-        sb.append("   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):\n");
+        List<String> microservices = new ArrayList<>();
+        for (String p : plan.generatedFiles.keySet()) {
+            if (p.endsWith("client-extension.yaml") && plan.generatedFiles.get(p).contains("type: objectAction")) {
+                microservices.add(Paths.get(p).getParent().getFileName().toString());
+            }
+        }
+        if (!microservices.isEmpty()) {
+            sb.append("   - Object Action microservices (deploy FIRST, then start them; the objects' actions call them):\n");
+            for (String ceName : microservices) {
+                sb.append("     blade gw :client-extensions:").append(ceName).append(":deploy\n");
+                sb.append("     blade gw :client-extensions:").append(ceName).append(":bootRun\n");
+            }
+            sb.append("     Liferay reaches each microservice at the '.serviceAddress' of its client-extension.yaml (generated as localhost:<port>,\n");
+            sb.append("     for a local Liferay bundle). Change it to match how Liferay runs:\n");
+            sb.append("       * Liferay in Docker, microservice on the host: host.docker.internal:<port>\n");
+            sb.append("         (on Linux, start the container with --add-host=host.docker.internal:host-gateway)\n");
+            sb.append("       * Microservice as another Docker Compose service: <service-name>:<port>\n");
+            sb.append("       * Remote Liferay: a host and port of the microservice that Liferay can reach\n");
+            sb.append("       * Liferay SaaS / PaaS: deploy the zip; the platform sets the addresses (LCP.json)\n");
+            sb.append("     The microservice reaches Liferay with com.liferay.lxc.dxp.* in application-default.properties (localhost:8080).\n");
+        }
+        sb.append("   - Batch Object Client Extensions (deploy BEFORE the frontend to initialize DB & REST APIs):\n");
         for (String p : plan.generatedFiles.keySet()) {
             if (p.endsWith("client-extension.yaml") && plan.generatedFiles.get(p).contains("type: batch")) {
                 String ceName = Paths.get(p).getParent().getFileName().toString();
@@ -168,7 +205,16 @@ public class MigrationReports {
         sb.append("   - Click 'Add' -> Select your Object definition as the Content Type\n");
         sb.append("   - Design the detail view using Page Fragments and visually map title, description, and date fields.\n");
 
-        if (!analysisResult.detectedNotifications.isEmpty()) {
+        boolean templatesGenerated = plan.generatedFiles.values().stream()
+            .anyMatch(c -> c.contains("com.liferay.notification.rest.dto.v1_0.NotificationTemplate"));
+        if (templatesGenerated) {
+            sb.append("\n6. NOTIFICATIONS (REPLACING LEGACY MAILSERVICE):\n");
+            sb.append("   - The Batch Client Extension creates the Notification Templates and the Object Actions that send them.\n");
+            sb.append("   - E-mails are only delivered with an SMTP server and a valid sender configured:\n");
+            sb.append("     Control Panel -> Server Administration -> Mail (or the mail.session.* portal properties).\n");
+            sb.append("   - Review the texts in Control Panel -> Notifications -> Templates, and after a test entry check\n");
+            sb.append("     Control Panel -> Notifications -> Notification Queue.\n");
+        } else if (!analysisResult.detectedNotifications.isEmpty()) {
             sb.append("\n6. NOTIFICATION TEMPLATE & OBJECT ACTION SETUP (REPLACING LEGACY MAILSERVICE):\n");
             sb.append("   - Legacy email sending detected in: ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n");
             sb.append("   - Modern Liferay replaces hardcoded Java MailService with Native Notification Templates & Object Actions:\n");
@@ -187,6 +233,92 @@ public class MigrationReports {
         }
 
         return sb.toString();
+    }
+
+    /** Flags object fields and actions that Liferay rejects or duplicates when the batch is deployed (validated on DXP 2026.q3). */
+    private static void checkObjectActions(String path, String content, MigrationPlan plan, List<String> warnings) {
+        if (content.contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectAction\"")) {
+            warnings.add(path + " is a standalone ObjectAction batch file and was not written; declare the actions in the 'objectActions' array of the object definition.");
+            return;
+        }
+        for (String field : arrayItems(content, "objectFields")) {
+            if (!field.contains("\"externalReferenceCode\"")) {
+                warnings.add(path + " has an object field without externalReferenceCode (" + nameOf(field) +
+                    "); deploying the batch again fails with 'Duplicate name'.");
+            }
+        }
+        for (String action : arrayItems(content, "objectActions")) {
+            String name = nameOf(action);
+            if (!action.contains("\"externalReferenceCode\"")) {
+                warnings.add(path + " has an object action without externalReferenceCode (" + name + "); it is duplicated on every deployment.");
+            }
+            if ((action.contains("\"update-object-entry\"") || action.contains("\"add-object-entry\"")) &&
+                !action.contains("\"objectDefinitionExternalReferenceCode\"")) {
+                warnings.add(path + " action " + name + " needs 'objectDefinitionExternalReferenceCode' in its parameters (ObjectActionParametersException).");
+            }
+            if (action.matches("(?s).*\"objectActionTriggerKey\"\\s*:\\s*\"onBefore.*")) {
+                warnings.add(path + " action " + name + " uses an onBefore* trigger, which Object Actions do not have; use an onAfter* trigger or an Object Validation.");
+            }
+            Matcher function = Pattern.compile("\"function#([\\w.-]+)\"").matcher(action);
+            if (function.find() && !definesObjectAction(plan, function.group(1))) {
+                warnings.add(path + " action " + name + " calls function#" + function.group(1) +
+                    ", but no generated client-extension.yaml defines that objectAction; deploy it before the batch.");
+            }
+        }
+    }
+
+    private static boolean definesObjectAction(MigrationPlan plan, String id) {
+        Pattern entry = Pattern.compile("(?m)^" + Pattern.quote(id) + ":\\s*$");
+        for (Map.Entry<String, String> e : plan.generatedFiles.entrySet()) {
+            if (e.getKey().endsWith("client-extension.yaml") && e.getValue().contains("type: objectAction") &&
+                entry.matcher(e.getValue()).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The top-level objects of every JSON array named key, found by brace depth (field and action JSON has no braces in strings). */
+    private static List<String> arrayItems(String content, String key) {
+        List<String> items = new ArrayList<>();
+        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*\\[").matcher(content);
+        while (m.find()) {
+            int depth = 0;
+            int start = -1;
+            for (int i = m.end(); i < content.length(); i++) {
+                char c = content.charAt(i);
+                if (c == '{' || c == '[') {
+                    if (depth++ == 0 && c == '{') {
+                        start = i;
+                    }
+                } else if (c == '}' || c == ']') {
+                    if (depth == 0) {
+                        break;
+                    }
+                    if (--depth == 0 && c == '}') {
+                        items.add(content.substring(start, i + 1));
+                    }
+                }
+            }
+        }
+        return items;
+    }
+
+    /** The item's own "name", ignoring the ones nested in its parameters (e.g. predefinedValues). */
+    private static String nameOf(String item) {
+        StringBuilder topLevel = new StringBuilder();
+        int depth = 0;
+        for (char c : item.toCharArray()) {
+            if (c == '{' || c == '[') {
+                depth++;
+            } else if (c == '}' || c == ']') {
+                depth--;
+            } else if (depth == 1) {
+                topLevel.append(c);
+            }
+        }
+        Matcher m = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]*)\"").matcher(topLevel);
+        return m.find() ? "'" + m.group(1) + "'" : "unnamed";
     }
 
     /** Flags frontend code that calls Liferay APIs with an externalReferenceCode or a URL missing '/o/'. */

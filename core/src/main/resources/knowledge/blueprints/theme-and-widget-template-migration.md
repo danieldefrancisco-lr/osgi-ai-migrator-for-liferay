@@ -80,17 +80,17 @@ Legacy Application Display Templates (`*.ftl`) required developers to call Java 
 When a legacy theme module (`my-brand-theme/`) is migrated, Michelangelo outputs:
 ```
 client-extensions/
-├── [brand-slug]-theme-css/
-│   ├── client-extension.yaml
-│   ├── frontend-token-definition.json
-│   └── static/css/
-│       ├── clay.css
-│       └── main.css
-├── [brand-slug]-assets/
-│   ├── client-extension.yaml
-│   └── static/images/
-│       ├── favicon.ico
-│       └── icons.svg
+└── [brand-slug]-theme/            (one client extension: themeCSS + themeFavicon + themeSpritemap, generation playbook 8.1 and 8.4)
+    ├── client-extension.yaml
+    ├── package.json               ("liferayDesignPack": {"baseTheme": "styled"})
+    ├── assets/images/
+    │   ├── favicon.ico            (copied from the legacy theme, never generated)
+    │   └── icons.svg              (only if the legacy theme shipped its own complete icon set)
+    └── src/
+        ├── frontend-token-definition.json
+        └── css/
+            ├── _clay_variables.scss
+            └── _custom.scss       (legacy rules scoped under #wrapper)
 fragments/
 └── [brand-slug]-theme-fragments/
     ├── collection.json

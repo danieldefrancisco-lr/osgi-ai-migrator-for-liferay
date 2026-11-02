@@ -86,19 +86,24 @@ Entry     in Related Object    Notification   (HTTP Call)   Client Extension
 
 | Action Detected | Target Liferay Modern Architecture | Implementation Details |
 | :--- | :--- | :--- |
-| **Updating Fields in current or related entry** (e.g. updating a counter, setting a related flag) | **Native Object Action: "Update an Object Entry"** | Trigger: `onAfterAdd` or `onAfterUpdate`.<br>Action Executor: `updateObjectEntry`.<br>Zero Java code required; defined directly in the Object definition batch JSON. |
-| **Creating an entry in another/related Object** (e.g. creating an audit row, creating a child record) | **Native Object Action: "Add an Object Entry"** | Trigger: `onAfterAdd` or `onAfterUpdate`.<br>Action Executor: `addObjectEntry`.<br>Zero Java code required; maps incoming payload fields to target Object. |
+| **Updating Fields in current or related entry** (e.g. updating a counter, setting a related flag) | **Native Object Action: "Update an Object Entry"** | Trigger: `onAfterAdd` or `onAfterUpdate`.<br>Action Executor: `update-object-entry`.<br>Zero Java code required; defined in the `objectActions` array of the Object definition batch JSON. |
+| **Creating an entry in another/related Object** (e.g. creating an audit row, creating a child record) | **Native Object Action: "Add an Object Entry"** | Trigger: `onAfterAdd` or `onAfterUpdate`.<br>Action Executor: `add-object-entry`.<br>Zero Java code required; sets the fields of the target Object (all its required fields). |
 | **Sending an Email / In-App Notification** (e.g. `MailService.sendEmail(...)`, `UserNotificationEvent`) | **Native Object Action: "Send a Notification"** | Trigger: `onAfterAdd` or `onAfterUpdate`.<br>Action Executor: `notification`.<br>Uses Liferay's built-in Notification Templates and user routing. |
 | **Standard HTTP / REST Notification** (e.g. simple POST to an external endpoint) | **Native Object Action: "Webhook"** | Trigger: `onAfterAdd` or `onAfterUpdate`.<br>Action Executor: `webhook`.<br>Sends the JSON payload directly to the configured endpoint URL without hosting an intermediate service. |
 | **Logging & Simple Auditing** (e.g. `_log.info(...)`, `System.out.println(...)`) | **Built-in Object Audit / Entry History** | **NO ACTION NEEDED**: Enable `"enableObjectEntryHistory": true` in the Object Definition batch JSON. Liferay automatically logs every change, author, and timestamp. |
-| **Complex Business Logic** (e.g. PDF generation, multi-system orchestration, legacy SOAP/JDBC calls, complex algorithms) | **Custom Object Action Client Extension** (`type: objectAction`) | Deploy a standalone microservice (Spring Boot, Node.js, Python) that receives the action payload via HTTP POST and handles the processing. |
+| **Complex Business Logic** (e.g. PDF generation, multi-system orchestration, legacy SOAP/JDBC calls, complex algorithms) | **Custom Object Action Client Extension** (`type: objectAction`) | A **Spring Boot** microservice (`objectAction` client extension, generation playbook section 4.4) receives the entry as JSON and runs the ported logic; the object gets an action with executor `function#[client-extension-id]`. Name in the plan the legacy class and methods it replaces, the trigger(s), and the fields and external systems it uses. |
+
+#### Rules for Object Actions in the Plan
+- Every action has a fixed `externalReferenceCode` (`[OBJECT_ERC]_ACTION_[NAME_UPPER]`) and lives in the `objectActions` array of its object; list them in the API CONTRACT with their trigger and executor.
+- `onBeforeCreate` / `onBeforeUpdate` logic that **validates** becomes an Object Validation; logic that **changes the entry** becomes an `onAfter*` action (`update-object-entry` or the microservice).
+- A microservice depends on how Liferay runs (local bundle, Docker, remote server or SaaS): never assume one. The plan keeps `localhost` defaults and `MIGRATION.md` carries the environment table of the generation playbook (section 4.4.7).
 
 ### 3.2 General OSGi Component Modernization Matrix
 
 | Legacy OSGi Pattern | Modern Liferay Architecture | Migration Strategy & Action |
 | :--- | :--- | :--- |
 | **Field validations** (e.g., `<aui:validator>`, `validate(...)`, `ServiceWrapper` validation) | **Object Validation Rule** | Configured in Object Definition using Expression Builder or Groovy script (e.g., `salary > 0` or JS Regex translated to Groovy). |
-| **Default values / Slug generation** | **Object Action** (`onBeforeAdd` or `onAfterAdd` trigger) or Expression Builder. | Automatically set calculated attributes or normalize fields. |
+| **Default values / Slug generation** | **Object Action** `update-object-entry` (`onAfterAdd` trigger) or a field default value. | Object Actions run after the entry is saved (there is no `onBefore*` trigger): set calculated attributes with an `update-object-entry` action. |
 | **Search Contributors & Indexer Post Processors** | **Native Liferay Objects Search** | **RETIRE**: Liferay Objects automatically indexes all defined fields (`indexed: true`, `indexedAsKeyword: true/false`). No custom Java indexer classes needed! |
 | **Message Bus (LMB) Event Consumers** (`MessageListener`, `@Async`) | **Native Object Actions** or **Object Action Client Extensions** | Map fire-and-forget events to Object Actions (Webhooks, notifications, or microservices). |
 | **Legacy Scheduled Jobs** (`SchedulerEntry`, Quartz `MessageListener`) | **Job Scheduler Template OSGi Module (`BaseDispatchTaskExecutor`)** | Modernize into a standard Liferay **Job Scheduler Template** (`BaseDispatchTaskExecutor`).<br>- Replaces hardcoded Quartz/cron registrations.<br>- Appears natively under *Control Panel $\rightarrow$ System $\rightarrow$ Job Scheduler* with UI trigger management and centralized execution logs.<br>- *(Optional Cloud Alternative)*: Can be extracted into an external Cron container calling Liferay Headless REST/Batch APIs via OAuth 2.0. |
@@ -233,7 +238,7 @@ Leonardo outputs the blueprint structure:
 
 
 ### MIGRATION BLUEPRINTS FOR THIS MODULE
-Apply these blueprints to the matching parts of the module. Where a blueprint asks for something the coders are not allowed to generate (e.g. Object Actions or notification templates as batch files), plan it as a manual post-migration step instead.
+Apply these blueprints to the matching parts of the module.
 
 # Legacy Notification & Email Migration to Liferay Native Notification Templates
 
@@ -275,11 +280,10 @@ In modern Liferay, notifications are completely decoupled from code:
    - Marketers and administrators visually design HTML/rich-text emails.
    - Built-in multi-language localization (`en_US`, `es_ES`, etc.).
    - Dynamic token replacement syntax: `[%FIRSTNAME%]`, `[%LASTNAME%]`, `[%EMAILADDRESS%]`, `[%TICKETTYPE%]`.
-2. **Object Actions (`com.liferay.object.admin.rest.dto.v1_0.ObjectAction`)**:
-   - Managed in **Control Panel $\rightarrow$ Objects $\rightarrow$ [Object] $\rightarrow$ Actions** tab.
-   - Trigger: `onAfterAdd` (dispatched immediately when a record is submitted).
-   - Action Type: `Notification`.
-   - Recipient Type: Object field (e.g. `emailAddress`).
+2. **Object Actions** (the `objectActions` array of the Object Definition):
+   - Trigger: `onAfterAdd` (dispatched immediately when a record is submitted) or `onAfterUpdate`.
+   - Executor: `notification`, with the template's `notificationTemplateExternalReferenceCode` and `type: email`.
+   - Recipients are set in the template (e.g. `[%[OBJECTNAME]_EMAILADDRESS%]`).
 
 ---
 
@@ -295,40 +299,18 @@ In modern Liferay, notifications are completely decoupled from code:
 
 ---
 
-## 4. Object Actions and Notification Templates Are Manual Steps
-Do **not** generate Object Actions or Notification Templates as batch files (no `*-actions.batch-engine-data.json` or `*-notification-template.batch-engine-data.json`): the migrator discards them, because they fail to deserialize in the Batch Engine. The Batch Client Extension only creates the folder, picklists and Object definitions.
+## 4. Generated by the Batch Client Extension
+The Batch Client Extension creates the Notification Template and the Object Action, following section 4.3 of the generation playbook:
+1. `01-02-[entity]-definition.batch-engine-data.json`: the object, without the notification action.
+2. `01-03-[entity]-notification-template.batch-engine-data.json`: the template (`com.liferay.notification.rest.dto.v1_0.NotificationTemplate`), with the legacy subject and body ported to object terms such as `[%[OBJECTNAME]_FIRSTNAME%]`.
+3. `01-04-[entity]-actions.batch-engine-data.json`: the same object definition again, now with the `notification` action in `objectActions`.
 
-Instead, plan the notification as a manual post-migration step: name the trigger (e.g. `On After Add`), the recipient field (e.g. `emailAddress`) and the template content (subject and body with object tokens such as `[%FIRSTNAME%]`), so the administrator can follow the checklist in section 5.
+Leonardo's plan names, for each legacy e-mail: the template ERC, the object, the trigger, the recipient field, the sender and the subject and body to port. Conditions the legacy code checked before sending (e.g. only when the status changes to confirmed) become the action's `conditionExpression`.
 
 ---
 
-## 5. Post-Migration Administrator Setup (Manual Checklist)
-Because Notification Templates are often managed by business teams, Raphael outputs this guide in `MIGRATION.md`:
-
-### Step 1: Create the Notification Template
-1. In Liferay, navigate to **Control Panel $\rightarrow$ Notifications $\rightarrow$ Notification Templates**.
-2. Click **(+) Add** $\rightarrow$ select **Email**.
-3. **Name:** `[Entity Name] Confirmation Email`.
-4. **Subject:** `Your [Entity Name] Registration is Confirmed!`.
-5. **Body:** Design the message using tokens matching your object field names:
-   ```html
-   <p>Hello [%FIRSTNAME%] [%LASTNAME%],</p>
-   <p>Thank you for registering. Your ticket type is <strong>[%TICKETTYPE%]</strong>.</p>
-   <p>See you at the event!</p>
-   ```
-6. Click **Save**.
-
-### Step 2: Wire the Template to the Object Action
-1. Navigate to **Control Panel $\rightarrow$ Objects $\rightarrow$ [Your Object]**.
-2. Open the **Actions** tab $\rightarrow$ click **(+) Add Action**.
-3. **Basic Info:**
-   - **Action Label:** `Send Confirmation Notification`
-   - **Active:** Toggle to `Yes`
-4. **Action Builder:**
-   - **Trigger:** Select **On After Add** (runs when the Custom Element creates an entry).
-   - **Action:** Select **Notification**.
-   - **Notification Template:** Select the template created in Step 1.
-   - **Recipient:** Select the object's recipient field (e.g. `emailAddress`).
-5. Click **Save**.
-
-*Result:* Every time an attendee completes the React Custom Element form, Liferay immediately and automatically dispatches the branded confirmation email!
+## 5. Post-Migration Administrator Setup
+Raphael lists these steps in `MIGRATION.md`:
+1. **Mail server**: e-mails are only delivered when Liferay has an SMTP server configured (*Control Panel → Server Administration → Mail*, or the `mail.session.*` portal properties) and a valid sender. Templates whose sender is not allowed are skipped with `Skipping email because the sender is not specified` in the log.
+2. **Review the template** in *Control Panel → Notifications → Templates*: business teams can adjust the text and translations there without a new deployment.
+3. **Check the queue** in *Control Panel → Notifications → Notification Queue* after creating a test entry.

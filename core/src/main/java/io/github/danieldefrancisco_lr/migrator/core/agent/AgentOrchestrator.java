@@ -87,8 +87,7 @@ public class AgentOrchestrator {
             "Rigorously follow the architectural mapping rules below:\n\n" + mappingPlaybook +
             (blueprints.length() == 0 ? "" :
                 "\n\n### MIGRATION BLUEPRINTS FOR THIS MODULE\n" +
-                "Apply these blueprints to the matching parts of the module. Where a blueprint asks for something the coders are not allowed to generate " +
-                "(e.g. Object Actions or notification templates as batch files), plan it as a manual post-migration step instead." + blueprints);
+                "Apply these blueprints to the matching parts of the module." + blueprints);
 
         String leonardoPrompt = "Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.\n" +
             backendEntityGuidance + "\n\n" +
@@ -96,12 +95,15 @@ public class AgentOrchestrator {
             "1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.\n" +
             "2. Required Batch Client Extension structure, ONLY if backend objects are requested.\n" +
             "3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.\n" +
-            "4. Model Listeners / Service Wrappers mapping (Native Object Actions vs Object Action CETs).\n" +
+            "4. Model Listeners / Service Wrappers / custom LocalServiceImpl logic mapping (Native Object Actions vs a Spring Boot objectAction client extension),\n" +
+            "   naming for each action: the object, the trigger, the executor, and the legacy class and method it replaces.\n" +
             "5. API CONTRACT (ALWAYS include it, even if backend objects are not generated): a section titled '## API CONTRACT' listing,\n" +
             "   for each Liferay Object: its name (PascalCase, e.g. DevconRegistration), its externalReferenceCode, and its REST endpoint\n" +
             "   '/o/c/' + the lowercase plural of the name with only letters and digits (e.g. '/o/c/devconregistrations');\n" +
             "   for each Picklist: its externalReferenceCode and its entries URL\n" +
             "   '/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries'.\n" +
+            "   for each Object Action: its name, externalReferenceCode, trigger and executor; for each Notification Template: its externalReferenceCode;\n" +
+            "   for each microservice: its client extension id and port.\n" +
             "   The backend and frontend coders work in parallel and never see each other's files: this contract is the ONLY way they agree on names, codes and URLs.\n\n" +
             legacyContext.toString();
 
@@ -136,15 +138,20 @@ public class AgentOrchestrator {
                 "   - client-extensions/[entity-slug]-object/batch/01-00-folder-definition.batch-engine-data.json\n" +
                 "   - client-extensions/[entity-slug]-object/batch/01-01-[entity-slug]-picklists.batch-engine-data.json (if select/dropdown fields exist)\n" +
                 "   - client-extensions/[entity-slug]-object/batch/01-02-[entity-slug]-definition.batch-engine-data.json\n" +
-                "   DO NOT generate separate batch files for validations or actions! All field constraints (required, unique) belong directly on objectFields inside 01-02, and notifications are configured via Liferay Control Panel per MIGRATION.md!\n" +
+                "   - client-extensions/[entity-slug]-object/batch/01-03-[entity-slug]-notification-template.batch-engine-data.json and 01-04-[entity-slug]-actions.batch-engine-data.json (only for notification actions, playbook section 4.3)\n" +
+                "   - client-extensions/[logic-slug]-object-action/ (only if the blueprint plans a microservice: every file of playbook section 4.4, including Dockerfile and LCP.json)\n" +
+                "   All field constraints (required, unique) belong directly on objectFields inside 01-02. NEVER generate a batch file with className ObjectAction or ObjectValidationRule.\n" +
                 "2. DO NOT generate package.json, React components, or frontend files in this call!\n" +
                 "3. In 01-00-folder-definition: 'name' MUST be alphanumeric with NO SPACES (e.g. 'DevconMigrationObjects').\n" +
                 "4. NEVER include reserved system field names ('status', 'id', 'companyId', 'groupId', 'userId', 'userName', 'createDate', 'modifiedDate', 'uuid') in objectFields!\n" +
                 "5. NEVER include 'objectLayouts' or 'objectViews' inside ObjectDefinition items! Liferay creates layouts automatically.\n" +
                 "6. NEVER add inline 'options' inside objectFieldSettings! For dropdowns/select fields, generate a Picklist in 01-01 and reference it via 'listTypeDefinitionExternalReferenceCode'!\n" +
                 "7. In Picklist listTypeEntries: 'key' MUST be alphanumeric with NO spaces, underscores, or hyphens (e.g. 'inPerson', 'M').\n" +
-                "8. In client-extension.yaml, include scopes: Liferay.Headless.Batch.Engine.everything, Liferay.Object.Admin.REST.everything, Liferay.Headless.Admin.List.Type.everything.\n" +
-                "9. Use EXACTLY the object names and the object and picklist externalReferenceCodes from the blueprint's API CONTRACT: the frontend calls them by those names.\n";
+                "8. In client-extension.yaml, include scopes: Liferay.Headless.Batch.Engine.everything, Liferay.Object.Admin.REST.everything, Liferay.Headless.Admin.List.Type.everything (plus Liferay.Notification.REST.everything when there are Notification Templates).\n" +
+                "9. Use EXACTLY the object names and the object and picklist externalReferenceCodes from the blueprint's API CONTRACT: the frontend calls them by those names.\n" +
+                "10. EVERY objectField and EVERY objectAction MUST have its own fixed externalReferenceCode ('[OBJECT_ERC]_[FIELD_NAME_UPPER]', '[OBJECT_ERC]_ACTION_[NAME_UPPER]'). Without them the next deployment fails with 'Duplicate name'.\n" +
+                "11. Object Actions go ONLY in the 'objectActions' array of the ObjectDefinition item (playbook section 4.2). 'update-object-entry' and 'add-object-entry' MUST include 'objectDefinitionExternalReferenceCode' in their parameters. Valid triggers: onAfterAdd, onAfterUpdate, onAfterDelete, standalone (there is no onBefore* trigger).\n" +
+                "12. A microservice action uses 'objectActionExecutorKey': 'function#[logic-slug]-object-action'. In its client-extension.yaml, '.serviceAddress' is ALWAYS 'localhost:[port]' and application-default.properties points to 'localhost:8080': never hard-code host.docker.internal or another host; the other environments are documented in MIGRATION.md.\n";
 
             String backendPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy Batch Client Extension files.\n" +
                 "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +

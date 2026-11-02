@@ -45,11 +45,11 @@ public class ArtifactWriter {
         for (Map.Entry<String, String> entry : currentPlan.generatedFiles.entrySet()) {
             String relativePath = entry.getKey().trim();
 
-            // Skip standalone validation/action batch files to keep Batch CX 100% clean and prevent Jackson deserialization crashes
+            // Skip standalone validation/action batch files: they fail to deserialize in the Batch Engine.
+            // Object Actions belong in the ObjectDefinition ("-actions" files that repeat the definition are kept)
             if (relativePath.endsWith("-validations.batch-engine-data.json") ||
-                relativePath.endsWith("-actions.batch-engine-data.json") ||
-                relativePath.endsWith("-notification-template.batch-engine-data.json") ||
-                relativePath.endsWith("-template.batch-engine-data.json")) {
+                (relativePath.endsWith(".batch-engine-data.json") &&
+                    entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectAction\""))) {
                 continue;
             }
 

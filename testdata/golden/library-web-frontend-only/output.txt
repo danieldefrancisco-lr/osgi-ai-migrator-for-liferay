@@ -83,7 +83,7 @@ PRE-FLIGHT CHECKS:
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 
 1. DEPLOY CLIENT EXTENSIONS:
-   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):
+   - Batch Object Client Extensions (deploy BEFORE the frontend to initialize DB & REST APIs):
    - Frontend Custom Element Client Extensions (deploy AFTER objects are active):
      blade gw :client-extensions:library-web-custom-element:deploy
 
@@ -231,7 +231,7 @@ PRE-FLIGHT CHECKS:
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 
 1. DEPLOY CLIENT EXTENSIONS:
-   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):
+   - Batch Object Client Extensions (deploy BEFORE the frontend to initialize DB & REST APIs):
    - Frontend Custom Element Client Extensions (deploy AFTER objects are active):
      blade gw :client-extensions:library-web-custom-element:deploy
 
@@ -360,7 +360,7 @@ PRE-FLIGHT CHECKS:
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 
 1. DEPLOY CLIENT EXTENSIONS:
-   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):
+   - Batch Object Client Extensions (deploy BEFORE the frontend to initialize DB & REST APIs):
    - Frontend Custom Element Client Extensions (deploy AFTER objects are active):
      blade gw :client-extensions:library-web-custom-element:deploy
 

@@ -89,12 +89,16 @@ PRE-FLIGHT CHECKS:
    [WARN] System audit fields (companyId/createDate) detected inside objectFields; recommend removing them.
    [WARN] Invalid 'objectValidations' or 'objectValidationRules' detected inside ObjectDefinition DTO. This causes NoSuchFieldException!
    [WARN] Property 'localized' detected inside ObjectField item. Liferay ObjectField does not accept 'localized'; use root 'enableLocalization' instead.
+   [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('title'); deploying the batch again fails with 'Duplicate name'.
+   [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('status'); deploying the batch again fails with 'Duplicate name'.
+   [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('format'); deploying the batch again fails with 'Duplicate name'.
+   [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('createDate'); deploying the batch again fails with 'Duplicate name'.
    [WARN] client-extensions/library-web-custom-element/client-extension.yaml uses a Kubernetes-style format (apiVersion/kind/metadata/spec). Liferay expects top-level 'assemble' and client extension id keys; 'blade gw build' fails with 'TextNode cannot be cast to ObjectNode'.
 
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 
 1. DEPLOY CLIENT EXTENSIONS:
-   - Batch Object Client Extensions (deploy FIRST to initialize DB & REST APIs):
+   - Batch Object Client Extensions (deploy BEFORE the frontend to initialize DB & REST APIs):
      blade gw :client-extensions:book-object:deploy
    - Frontend Custom Element Client Extensions (deploy AFTER objects are active):
      blade gw :client-extensions:library-web-custom-element:deploy
