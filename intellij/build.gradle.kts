@@ -1,3 +1,5 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+
 plugins {
     id("java")
     id("org.jetbrains.intellij.platform") version "2.5.0"
@@ -34,10 +36,13 @@ java {
 
 intellijPlatform {
     buildSearchableOptions = false
-    // "./gradlew verifyPlugin" checks compatibility with the IDE releases JetBrains recommends for our build range
+    // "./gradlew verifyPlugin": oldest supported release, last Community edition, and the current unified IDEA
+    // (from 2025.3 there is no separate Community download, which the "recommended" list does not know yet)
     pluginVerification {
         ides {
-            recommended()
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2024.3")
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2")
+            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2026.2")
         }
     }
     pluginConfiguration {
