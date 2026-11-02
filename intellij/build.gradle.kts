@@ -34,6 +34,12 @@ java {
 
 intellijPlatform {
     buildSearchableOptions = false
+    // "./gradlew verifyPlugin" checks compatibility with the IDE releases JetBrains recommends for our build range
+    pluginVerification {
+        ides {
+            recommended()
+        }
+    }
     pluginConfiguration {
         version = project.version.toString()
         ideaVersion {
