@@ -57,7 +57,10 @@ The `vscode/` extension runs the bundled CLI, so it needs Java 17 or later (sett
 **OSGi AI Migrator: Java Home** if `java` on the PATH is older). Right-click a module folder in the Explorer and
 choose **Migrate OSGi Module to Client Extensions...**. Gemini settings are under **OSGi AI Migrator** in the
 VS Code settings; for AI Studio, run **OSGi AI Migrator: Set Gemini API Key** (kept in VS Code secret storage).
-Until it is on the Marketplace, install the `.vsix` with **Extensions → ... → Install from VSIX...**.
+Install it from the
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=DanieldeFrancisco.osgi-ai-migrator)
+(search for "OSGi AI Migrator" in the Extensions view, or run `code --install-extension DanieldeFrancisco.osgi-ai-migrator`).
+Each GitHub Release also has the `.vsix`, for **Extensions → ... → Install from VSIX...**.
 
 To build it, run `./mvnw install` first (it builds the CLI jar), then:
 
