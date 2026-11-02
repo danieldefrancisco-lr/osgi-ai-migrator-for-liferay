@@ -117,9 +117,10 @@ public class CoreCharacterizationTest {
             } catch (Exception e) {
                 outcome = "Write Error\nFailed to write files: " + e.getMessage();
             }
-            // apply-messages.txt is recorded by the Eclipse tests, which run after these; a new case has none yet
+            // apply-messages.txt is recorded by the Eclipse tests, which run after these: when updating goldens it may
+            // still hold the old outcome, and a new case has none yet
             Path eclipseMessagesFile = Golden.TESTDATA.resolve("golden/" + caseName + "/apply-messages.txt");
-            if (Files.exists(eclipseMessagesFile)) {
+            if (Files.exists(eclipseMessagesFile) && !Boolean.getBoolean("golden.update")) {
                 String eclipseMessages = Files.readString(eclipseMessagesFile, StandardCharsets.UTF_8);
                 String expectedOutcome = eclipseMessages.startsWith("Write Error") ? eclipseMessages.trim() : "Success";
                 assertEquals(expectedOutcome, golden.normalize(outcome).trim());

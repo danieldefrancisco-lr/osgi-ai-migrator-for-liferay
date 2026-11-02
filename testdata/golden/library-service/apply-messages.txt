@@ -7,4 +7,5 @@ Files created: 6
 Migration History & Action Checklist saved to:
   -> docs/migrations/library-migration-report.md
   -> client-extensions/book-object/MIGRATION.md
+  -> client-extensions/library-object/MIGRATION.md
 

@@ -11,4 +11,6 @@ Fragment Collections zipped and ready to import:
 Migration History & Action Checklist saved to:
   -> docs/migrations/acme-theme-migration-report.md
   -> client-extensions/library-web-custom-element/MIGRATION.md
+  -> client-extensions/acme-theme-custom-element/MIGRATION.md
+  -> client-extensions/acme-theme-object/MIGRATION.md
 

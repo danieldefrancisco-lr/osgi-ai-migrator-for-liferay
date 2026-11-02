@@ -6,5 +6,6 @@ Files created: 6
 
 Migration History & Action Checklist saved to:
   -> docs/migrations/legacy-tasks-migration-report.md
+  -> client-extensions/legacy-tasks-object/MIGRATION.md
   -> client-extensions/book-object/MIGRATION.md
 

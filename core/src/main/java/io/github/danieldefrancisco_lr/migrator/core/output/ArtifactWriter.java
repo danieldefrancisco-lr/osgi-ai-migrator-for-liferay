@@ -40,6 +40,7 @@ public class ArtifactWriter {
         String defaultObjectCeDir = "client-extensions/" + moduleSlug + "-object";
 
         java.util.Set<String> fragmentCollections = new java.util.HashSet<>();
+        java.util.Set<String> createdCeDirs = new java.util.HashSet<>();
 
         for (Map.Entry<String, String> entry : currentPlan.generatedFiles.entrySet()) {
             String relativePath = entry.getKey().trim();
@@ -81,6 +82,15 @@ public class ArtifactWriter {
                 }
             }
 
+            // Track the client extension folders actually written (after re-routing), which get a MIGRATION.md
+            if (relativePath.startsWith("client-extensions/")) {
+                String sub = relativePath.substring("client-extensions/".length());
+                int slash = sub.indexOf("/");
+                if (slash != -1) {
+                    createdCeDirs.add(sub.substring(0, slash));
+                }
+            }
+
             Path targetPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), relativePath);
             Files.createDirectories(targetPath.getParent());
 
@@ -110,16 +120,6 @@ public class ArtifactWriter {
         Files.writeString(centralReportPath, reportMarkdown);
 
         // 2. MIGRATION.md inside each created client extension folder
-        java.util.Set<String> createdCeDirs = new java.util.HashSet<>();
-        for (String path : currentPlan.generatedFiles.keySet()) {
-            if (path.startsWith("client-extensions/")) {
-                String sub = path.substring("client-extensions/".length());
-                int slash = sub.indexOf("/");
-                if (slash != -1) {
-                    createdCeDirs.add(sub.substring(0, slash));
-                }
-            }
-        }
         for (String ceDir : createdCeDirs) {
             Path ceReportPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), "client-extensions/" + ceDir + "/MIGRATION.md");
             Files.writeString(ceReportPath, reportMarkdown);
