@@ -19,6 +19,9 @@ Determine:
 FORMAT: do NOT use Markdown tables anywhere in the blueprint; use headings and bullet lists (e.g. '- `title` (String, Text, required)'). Never draw lines of dashes.
 Describe the design in prose and tables: NEVER write file contents (JSON, YAML, Java, JavaScript) in the blueprint; the coders write the files from the playbook templates.
 Legacy columns with a reserved name (status, id, companyId, groupId, userId, userName, createDate, modifiedDate, uuid, externalReferenceCode) get a new field name prefixed with the entity (e.g. 'status' -> 'bookStatus'); list the rename in the API CONTRACT.
+MICROSERVICE: plan at most ONE Spring Boot objectAction client extension per module ('[module-slug]-object-action', port 58081), with one Object Action per trigger;
+logic of the same trigger runs in order inside it (e.g. compute the late fee, then send it to the inventory). Its OAuth scopes include 'c_[objectname].everything' (lowercase) when it updates entries.
+'update-object-entry' only sets fixed values: computed values (dates such as 'today + 14 days', arithmetic, conditions on the previous value) go to the microservice.
 
 ### Legacy Module Analysis:
 Module Name: acme-theme

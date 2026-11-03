@@ -554,7 +554,7 @@ Depending on Leonardo's classification, Michelangelo either declares **Native Ob
 ### 4.1 Rules That Apply to Every Object Action
 1. **Actions are nested in the Object Definition**: declare them in the `objectActions` array of the `ObjectDefinition` item. NEVER generate a standalone batch file with `className` `com.liferay.object.admin.rest.dto.v1_0.ObjectAction`.
 2. **Every object field and every object action has its own fixed `externalReferenceCode`** (e.g. `[OBJECT_ERC]_[FIELD_NAME_UPPER]`, `[OBJECT_ERC]_ACTION_[ACTION_NAME_UPPER]`). Liferay matches fields and actions by ERC when the batch is deployed again: without one it generates a random ERC, and the next deployment fails with `ObjectFieldNameException$MustNotBeDuplicate`.
-3. **`name` is camelCase with only letters and digits** (`notifyUserOnLoanCreation`); the readable text goes in `label`.
+3. **`name` is camelCase with only letters and digits** (`notifyUserOnLoanCreation`); the readable text goes in `label`. A `standalone` action (a user runs it from the entry's menu) also needs `"errorMessage": {"en_US": "..."}`, shown when it fails; without it the import fails with `ObjectActionErrorMessageException` (validated).
 4. **The trigger and the name are fixed once the object is published**: on an approved object, Liferay silently ignores changes to `objectActionTriggerKey` and `name` of an existing action. To change them, create a new action (new `name` and new `externalReferenceCode`) and tell the administrator in `MIGRATION.md` to delete the old one.
 5. **Triggers**: `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, or `standalone` (run by a user from the entry's menu). Actions run **after** the entry is saved, so a legacy `onBeforeCreate` / `onBeforeUpdate` cannot be ported as is:
    - validation logic (`onBefore*` throwing a `ModelListenerException`) becomes an **Object Validation** (see 2.5 rule 5);
@@ -907,7 +907,27 @@ public class [Name]ObjectActionRestController extends BaseRestController {
 
 }
 ```
-Read fields with `values.path("[fieldName]").asText()`. For calls back to Liferay, use the REST API of the object (`/o/c/[objects]`) with the scopes added in 4.4.2.
+Read fields with `values.path("[fieldName]").asText()`. To update the entry (or other entries), call the object's REST API with Spring's `RestClient` and the JWT Liferay sent, with the `c_[objectname].everything` scope of 4.4.2:
+```java
+	@Value("${com.liferay.lxc.dxp.mainDomain}")
+	private String _lxcDXPMainDomain;
+
+	@Value("${com.liferay.lxc.dxp.server.protocol}")
+	private String _lxcDXPServerProtocol;
+
+	private final RestClient _restClient = RestClient.create();
+
+	private void _patchEntry(Jwt jwt, long entryId, Map<String, Object> values) {
+		_restClient.patch()
+			.uri(_lxcDXPServerProtocol + "://" + _lxcDXPMainDomain + "/o/c/[objects]/" + entryId)
+			.header("Authorization", "Bearer " + jwt.getTokenValue())
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(values)
+			.retrieve()
+			.toBodilessEntity();
+	}
+```
+Use only the dependencies of 4.4.3 plus well-known libraries with explicit versions. There is NO Liferay Java client for objects (`com.liferay.object.rest.client`, `ExtensionClient` and similar do not exist): the only Liferay classes are `BaseRestController` and `ClientExtensionUtilSpringBootComponentScan`.
 
 #### 4.4.6 Payload Contract (validated)
 Liferay POSTs this JSON to `resourcePath` with a JWT (`Authorization: Bearer`) that `BaseRestController` validates:
@@ -923,6 +943,7 @@ Liferay POSTs this JSON to `resourcePath` with a JWT (`Authorization: Bearer`) t
 | `userId`, `userName`, `userExternalReferenceCode`, `preferredLanguageId` | the user who made the change | `serviceContext.getUserId()` |
 
 Date fields inside `objectEntry` (`modifiedDate`, `statusDate`) change format between triggers: never parse them; use `dateModified` from the DTO.
+**Dates (validated):** read the entry's Date and DateTime fields from `objectEntryDTO[ObjectName].properties`, which uses ISO 8601 (`"2026-11-17T09:42:06.000Z"`, parsed by `Instant.parse`); `objectEntry.values` has them as `"<TIMESTAMP>.0"`, which `Instant.parse` rejects. Empty fields are missing from both. When writing them back (PATCH), send DateTime values in ISO 8601 **without fractions of a second** (`Instant.now().truncatedTo(ChronoUnit.SECONDS).toString()` → `2026-11-17T09:35:23Z`) and Date values as `yyyy-MM-dd` (`LocalDate.toString()`): `Instant.now().toString()` has nanoseconds and Liferay answers 500 (`DateTimeParseException ... at index 19`).
 
 #### 4.4.7 Running It (for `MIGRATION.md`)
 The microservice runs outside Liferay. How Liferay and the microservice reach each other depends on the environment, so `MIGRATION.md` MUST include this table, filled in with the generated client extension ids and port:

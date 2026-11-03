@@ -100,13 +100,46 @@ class MigrationReportsTest {
         plan.generatedFiles.put("client-extensions/l-object/batch/01-02-loan-definition.batch-engine-data.json",
             DEFINITION_HEAD + "  \"objectActions\": [{\"externalReferenceCode\": \"LOAN_ACTION_RETURN\", \"name\": \"processReturn\"," +
             " \"conditionExpression\": \"loanStatus == \\\"returned\\\" && originalObjectEntry.values.loanStatus != \\\"returned\\\"\"," +
-            " \"objectActionExecutorKey\": \"webhook\", \"objectActionTriggerKey\": \"onAfterUpdate\", \"parameters\": {\"url\": \"https://x\"}}]}]}");
+            " \"objectActionExecutorKey\": \"webhook\", \"objectActionTriggerKey\": \"onAfterUpdate\", \"parameters\": {\"url\": \"https://x\"}}," +
+            " {\"externalReferenceCode\": \"LOAN_ACTION_RENEW\", \"name\": \"renewLoan\", \"objectActionExecutorKey\": \"webhook\"," +
+            " \"objectActionTriggerKey\": \"standalone\", \"parameters\": {\"url\": \"https://x\"}}," +
+            " {\"errorMessage\": {\"en_US\": \"Could not close\"}, \"externalReferenceCode\": \"LOAN_ACTION_CLOSE\", \"name\": \"closeLoan\"," +
+            " \"objectActionExecutorKey\": \"webhook\", \"objectActionTriggerKey\": \"standalone\", \"parameters\": {\"url\": \"https://x\"}}]}]}");
 
         String report = report(plan);
 
         assertTrue(report.contains("holds Object Validations and was not written") && report.contains("'validateBorrowerEmail'"), report);
-        assertTrue(report.contains("imports object entries; deploy it only if they are data migrated"), report);
+        assertTrue(report.contains("imports object entries and was not written"), report);
         assertTrue(report.contains("action 'processReturn' has a conditionExpression on the previous values"), report);
+        assertTrue(report.contains("action 'renewLoan' is standalone and has no 'errorMessage'"), report);
+        assertFalse(report.contains("action 'closeLoan' is standalone"), report);
+    }
+
+    @Test
+    void flagsSeveralMicroservicesMissingObjectScopesAndCodeInValues() {
+        String yaml = "assemble:\n    - fromTask: bootJar\n\nx-oauth:\n    .serviceAddress: localhost:58081\n    scopes:\n" +
+            "        - Liferay.Object.Admin.REST.everything\n    type: oAuthApplicationUserAgent\n\nX-ID:\n    type: objectAction\n";
+        MigrationPlan plan = file("client-extensions/a-object-action/client-extension.yaml", yaml.replace("X-ID", "a-object-action"));
+        plan.generatedFiles.put("client-extensions/a-object-action/src/main/java/A.java",
+            "import com.liferay.client.extension.util.spring.boot3.BaseRestController;\n" +
+            "import com.liferay.object.rest.client.resource.v1_0.ObjectEntryResource;\n" +
+            "class A { void p() { values.put(\"returnDate\", Instant.now().toString()); restClient.patch().uri(\"/o/c/loans/\" + id); } }");
+        plan.generatedFiles.put("client-extensions/b-object-action/client-extension.yaml", yaml.replace("X-ID", "b-object-action"));
+        plan.generatedFiles.put("client-extensions/l-object/batch/01-02-loan-definition.batch-engine-data.json",
+            DEFINITION_HEAD + "  \"objectActions\": [{\"externalReferenceCode\": \"LOAN_ACTION_INIT\", \"name\": \"initLoan\"," +
+            " \"objectActionExecutorKey\": \"update-object-entry\", \"objectActionTriggerKey\": \"onAfterAdd\", \"parameters\": {" +
+            "\"objectDefinitionExternalReferenceCode\": \"TICKET\", \"predefinedValues\": [{\"inputAsValue\": false, \"name\": \"dueDate\"," +
+            " \"value\": \"new Date(new Date().getTime() + 14)\"}]}}]}]}");
+
+        String report = report(plan);
+
+        assertTrue(report.contains("The plan has 2 microservices (client-extensions/a-object-action/, client-extensions/b-object-action/)"), report);
+        assertTrue(report.contains("client-extensions/a-object-action/ calls the objects' REST API (/o/c/) but its OAuth application has no"), report);
+        assertFalse(report.contains("client-extensions/b-object-action/ calls the objects' REST API"), report);
+        assertTrue(report.contains("action 'initLoan' writes code in its predefinedValues"), report);
+        assertTrue(report.contains("A.java imports com.liferay.object.rest.client.resource.v1_0.ObjectEntryResource, which the microservice does not have"), report);
+        assertFalse(report.contains("imports com.liferay.client.extension"), report);
+        assertTrue(report.contains("A.java sends Instant.now() to Liferay with fractions of a second"), report);
     }
 
     @Test

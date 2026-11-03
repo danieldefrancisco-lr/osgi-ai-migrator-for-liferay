@@ -25,6 +25,9 @@ public class MigrationReports {
     private static final Pattern URL_WITHOUT_O_PREFIX = Pattern.compile("['\"`]/(?:headless-[\\w-]+|c)/");
     /** A custom object scope written as C_Loan.everything or Liferay.Object.C_Loan.everything (validated: it is c_loan.everything). */
     private static final Pattern OBJECT_SCOPE = Pattern.compile("(?m)^\\s*-\\s+((?:Liferay\\.Object\\.)?[Cc]_(\\w+)\\.everything\\S*)");
+    /** Java or JavaScript in an update/add-object-entry value, e.g. "new Date(new Date().getTime() + ...)". */
+    private static final Pattern CODE_IN_VALUE = Pattern.compile("\"value\"\\s*:\\s*\"[^\"]*(?:new\\s+\\w+\\(|\\.getTime\\(|System\\.|Math\\.)");
+    private static final Pattern LIFERAY_IMPORT = Pattern.compile("(?m)^import\\s+(com\\.liferay\\.[\\w.]+);");
     /** The business types of Liferay Objects fields. */
     private static final List<String> BUSINESS_TYPES = List.of(
         "Aggregation", "Attachment", "AutoIncrement", "Boolean", "Date", "DateTime", "Decimal", "Encrypted", "Formula",
@@ -151,6 +154,8 @@ public class MigrationReports {
             }
         }
 
+        checkMicroservices(plan, warnings);
+
         if (hasYaml) passes.add("Canonical client-extension.yaml present");
         if (hasBatch) passes.add("Batch Client Extension definition present (Liferay 7.4+ schema)");
         if (hasApprovedStatus) passes.add("Object Definition pre-approved (status.code: 0)");
@@ -274,7 +279,9 @@ public class MigrationReports {
             return;
         }
         if (content.contains("\"com.liferay.object.rest.dto.v1_0.ObjectEntry\"")) {
-            warnings.add(path + " imports object entries; deploy it only if they are data migrated from the legacy database, not examples.");
+            warnings.add(path + " imports object entries and was not written: Gemini cannot see the legacy data, so they are invented examples. " +
+                "Export the legacy table to that format instead (data migration blueprint).");
+            return;
         }
         if (content.contains("\"com.liferay.notification.rest.dto.v1_0.NotificationTemplate\"")) {
             checkNotificationTerms(path, content, plan, warnings);
@@ -319,6 +326,13 @@ public class MigrationReports {
                 !action.contains("\"objectDefinitionExternalReferenceCode\"")) {
                 warnings.add(path + " action " + name + " needs 'objectDefinitionExternalReferenceCode' in its parameters (ObjectActionParametersException).");
             }
+            if (action.matches("(?s).*\"objectActionTriggerKey\"\\s*:\\s*\"standalone\".*") && !action.contains("\"errorMessage\"")) {
+                warnings.add(path + " action " + name + " is standalone and has no 'errorMessage'; the import fails with ObjectActionErrorMessageException.");
+            }
+            if (CODE_IN_VALUE.matcher(action).find()) {
+                warnings.add(path + " action " + name + " writes code in its predefinedValues (e.g. 'new Date()'); Liferay does not run it: " +
+                    "compute the value in the microservice.");
+            }
             String condition = topLevelString(action, "conditionExpression");
             if (condition != null && condition.contains("original")) {
                 warnings.add(path + " action " + name + " has a conditionExpression on the previous values (" + condition +
@@ -331,6 +345,47 @@ public class MigrationReports {
             if (function.find() && !definesObjectAction(plan, function.group(1))) {
                 warnings.add(path + " action " + name + " calls function#" + function.group(1) +
                     ", but no generated client-extension.yaml defines that objectAction; deploy it before the batch.");
+            }
+        }
+    }
+
+    /** One microservice per module; one that updates entries through /o/c/ needs the object's c_ scope. */
+    private static void checkMicroservices(MigrationPlan plan, List<String> warnings) {
+        Map<String, String> dirs = new java.util.TreeMap<>();
+        for (Map.Entry<String, String> e : plan.generatedFiles.entrySet()) {
+            if (e.getKey().endsWith("client-extension.yaml") && e.getValue().contains("type: objectAction")) {
+                dirs.put(e.getKey().substring(0, e.getKey().length() - "client-extension.yaml".length()), e.getValue());
+            }
+        }
+        if (dirs.size() > 1) {
+            warnings.add("The plan has " + dirs.size() + " microservices (" + String.join(", ", dirs.keySet()) + "); one per module serving all its " +
+                "actions keeps logic of the same trigger in order and needs a single port and deployment.");
+        }
+        for (Map.Entry<String, String> dir : dirs.entrySet()) {
+            boolean callsObjectApi = false;
+            for (Map.Entry<String, String> e : plan.generatedFiles.entrySet()) {
+                if (!e.getKey().startsWith(dir.getKey()) || !e.getKey().endsWith(".java")) {
+                    continue;
+                }
+                if (e.getValue().contains("/o/c/")) {
+                    callsObjectApi = true;
+                    if (e.getValue().contains("Instant.now()") && !e.getValue().contains("truncatedTo(")) {
+                        warnings.add(e.getKey() + " sends Instant.now() to Liferay with fractions of a second; DateTime fields reject them with 500 " +
+                            "(use Instant.now().truncatedTo(ChronoUnit.SECONDS)).");
+                    }
+                }
+                Matcher liferayImport = LIFERAY_IMPORT.matcher(e.getValue());
+                while (liferayImport.find()) {
+                    if (!liferayImport.group(1).startsWith("com.liferay.client.extension.util.spring.boot3.BaseRestController") &&
+                        !liferayImport.group(1).startsWith("com.liferay.client.extension.util.spring.boot3.ClientExtensionUtilSpringBootComponentScan")) {
+                        warnings.add(e.getKey() + " imports " + liferayImport.group(1) + ", which the microservice does not have; call Liferay with " +
+                            "RestClient and the JWT (generation playbook 4.4.5).");
+                    }
+                }
+            }
+            if (callsObjectApi && !Pattern.compile("(?m)^\\s*-\\s+c_\\w+\\.everything").matcher(dir.getValue()).find()) {
+                warnings.add(dir.getKey() + " calls the objects' REST API (/o/c/) but its OAuth application has no 'c_[objectname].everything' scope; " +
+                    "Liferay rejects the call with 403.");
             }
         }
     }

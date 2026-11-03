@@ -290,6 +290,8 @@ The data migration consists of three phases:
 
 File naming: `batch/03-00-[entity-slug]-entries.batch-engine-data.json`
 
+**This file is produced by exporting the legacy database table (section 3), never by the migrator**: the coders cannot see the legacy data, so they do NOT generate entries files (the migrator discards them). The plan describes the export (table, column mapping, ERC rule) and `MIGRATION.md` tells the developer how to run it. The values below only show the format.
+
 ```json
 {
   "configuration": {

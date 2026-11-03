@@ -50,7 +50,9 @@ public class ArtifactWriter {
             if (relativePath.endsWith("-validations.batch-engine-data.json") ||
                 (relativePath.endsWith(".batch-engine-data.json") &&
                     (entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectAction\"") ||
-                     entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule\"")))) {
+                     entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule\"") ||
+                     // Gemini cannot see the legacy data: entries it writes are invented examples
+                     entry.getValue().contains("com.liferay.object.rest.dto.v1_0.ObjectEntry\"")))) {
                 continue;
             }
 
