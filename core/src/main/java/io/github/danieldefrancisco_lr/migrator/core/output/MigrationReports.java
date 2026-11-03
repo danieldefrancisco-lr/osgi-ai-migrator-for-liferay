@@ -27,7 +27,9 @@ public class MigrationReports {
     private static final Pattern OBJECT_SCOPE = Pattern.compile("(?m)^\\s*-\\s+((?:Liferay\\.Object\\.)?[Cc]_(\\w+)\\.everything\\S*)");
     /** Java or JavaScript in an update/add-object-entry value, e.g. "new Date(new Date().getTime() + ...)". */
     private static final Pattern CODE_IN_VALUE = Pattern.compile("\"value\"\\s*:\\s*\"[^\"]*(?:new\\s+\\w+\\(|\\.getTime\\(|System\\.|Math\\.)");
-    private static final Pattern LIFERAY_IMPORT = Pattern.compile("(?m)^import\\s+(com\\.liferay\\.[\\w.]+);");
+    /** Imports of Liferay platform APIs (a project's own com.liferay.* packages are not matched). */
+    private static final Pattern LIFERAY_IMPORT = Pattern.compile(
+        "(?m)^import\\s+(com\\.liferay\\.(?:portal|object|headless|notification|petra|batch|oauth2|client\\.extension|list\\.type)\\.[\\w.]+);");
     /** The business types of Liferay Objects fields. */
     private static final List<String> BUSINESS_TYPES = List.of(
         "Aggregation", "Attachment", "AutoIncrement", "Boolean", "Date", "DateTime", "Decimal", "Encrypted", "Formula",
@@ -74,14 +76,24 @@ public class MigrationReports {
         return sb.toString();
     }
 
-    public static String buildRaphaelVerificationReport(ModuleAnalysisResult analysisResult, MigrationPlan plan) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("================================================================================\n");
-        sb.append("RAPHAEL (THE VERIFIER) - PRE-FLIGHT QUALITY ASSURANCE REPORT\n");
-        sb.append("================================================================================\n\n");
+    /** Raphael's checks on a set of files (paths relative to the Liferay workspace, e.g. client-extensions/x/client-extension.yaml). */
+    public static class Checks {
+        public final List<String> passes = new ArrayList<>();
+        public final List<String> warnings = new ArrayList<>();
+    }
 
-        List<String> passes = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
+    public static Checks runChecks(MigrationPlan plan) {
+        return runChecks(plan, true);
+    }
+
+    /**
+     * @param migration true for the files of one migration; false for a whole workspace (the 'verify' command), which can hold
+     *                  several modules' microservices and addresses the developer set for their environment on purpose
+     */
+    public static Checks runChecks(MigrationPlan plan, boolean migration) {
+        Checks checks = new Checks();
+        List<String> passes = checks.passes;
+        List<String> warnings = checks.warnings;
 
         // Validate Generated Files
         boolean hasBatch = false;
@@ -124,7 +136,7 @@ public class MigrationReports {
                             objectScope.group(2).toLowerCase() + ".everything'.");
                     }
                 }
-                if (content.contains("host.docker.internal")) {
+                if (migration && content.contains("host.docker.internal")) {
                     warnings.add(path + " hard-codes host.docker.internal; generate localhost and document the other environments in MIGRATION.md.");
                 }
             }
@@ -154,11 +166,23 @@ public class MigrationReports {
             }
         }
 
-        checkMicroservices(plan, warnings);
+        checkMicroservices(plan, migration, warnings);
 
         if (hasYaml) passes.add("Canonical client-extension.yaml present");
         if (hasBatch) passes.add("Batch Client Extension definition present (Liferay 7.4+ schema)");
         if (hasApprovedStatus) passes.add("Object Definition pre-approved (status.code: 0)");
+        return checks;
+    }
+
+    public static String buildRaphaelVerificationReport(ModuleAnalysisResult analysisResult, MigrationPlan plan) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("================================================================================\n");
+        sb.append("RAPHAEL (THE VERIFIER) - PRE-FLIGHT QUALITY ASSURANCE REPORT\n");
+        sb.append("================================================================================\n\n");
+
+        Checks checks = runChecks(plan);
+        List<String> passes = checks.passes;
+        List<String> warnings = checks.warnings;
 
         sb.append("PRE-FLIGHT CHECKS:\n");
         for (String p : passes) {
@@ -350,14 +374,14 @@ public class MigrationReports {
     }
 
     /** One microservice per module; one that updates entries through /o/c/ needs the object's c_ scope. */
-    private static void checkMicroservices(MigrationPlan plan, List<String> warnings) {
+    private static void checkMicroservices(MigrationPlan plan, boolean migration, List<String> warnings) {
         Map<String, String> dirs = new java.util.TreeMap<>();
         for (Map.Entry<String, String> e : plan.generatedFiles.entrySet()) {
             if (e.getKey().endsWith("client-extension.yaml") && e.getValue().contains("type: objectAction")) {
                 dirs.put(e.getKey().substring(0, e.getKey().length() - "client-extension.yaml".length()), e.getValue());
             }
         }
-        if (dirs.size() > 1) {
+        if (migration && dirs.size() > 1) {
             warnings.add("The plan has " + dirs.size() + " microservices (" + String.join(", ", dirs.keySet()) + "); one per module serving all its " +
                 "actions keeps logic of the same trigger in order and needs a single port and deployment.");
         }

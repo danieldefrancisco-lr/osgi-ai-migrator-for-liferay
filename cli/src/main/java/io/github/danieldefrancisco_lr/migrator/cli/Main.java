@@ -10,9 +10,11 @@ import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyze
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
 import io.github.danieldefrancisco_lr.migrator.core.output.ArtifactWriter;
 import io.github.danieldefrancisco_lr.migrator.core.output.MigrationReports;
+import io.github.danieldefrancisco_lr.migrator.core.output.WorkspaceFiles;
 
 import java.io.File;
 import java.io.PrintStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,6 +37,9 @@ public class Main {
         "  migrate <module-dir>               Run the 4-agent pipeline with Gemini and print the plan and checks\n" +
         "  apply <module-dir> --plan <file>   Write a plan saved with 'migrate --save-plan' into the Liferay workspace\n" +
         "  config                             Show the Gemini settings in effect and where they come from\n" +
+        "  verify <workspace-dir>             Run Raphael's checks on the client extensions and fragments of a Liferay workspace\n" +
+        "                                     (exit code 3 when there are warnings); --only <cx,cx> reports only those client extensions\n" +
+        "  knowledge <dir>                    Export the playbooks, blueprints and schemas of this version\n" +
         "\n" +
         "Options:\n" +
         "  --folder <path>          Only analyze this folder of the module (relative to the module directory)\n" +
@@ -62,7 +67,10 @@ public class Main {
         "--service-account", GeminiSettings.P_SERVICE_ACCOUNT_FILE,
         "--endpoint", GeminiSettings.P_GEMINI_ENDPOINT);
 
-    private static final List<String> VALUE_OPTIONS = List.of("--folder", "--save-plan", "--workspace", "--config", "--plan");
+    private static final List<String> VALUE_OPTIONS = List.of("--folder", "--save-plan", "--workspace", "--config", "--plan", "--only");
+
+    /** Exit code of 'verify' when Raphael has warnings, so agents and scripts can loop until it is clean. */
+    static final int EXIT_WARNINGS = 3;
     private static final List<String> FLAGS = List.of("--no-backend", "--apply", "--json");
 
     public static void main(String[] args) {
@@ -112,6 +120,13 @@ public class Main {
             if (command.equals("config")) {
                 out.print(settings.describe());
                 return 0;
+            }
+            if (command.equals("verify") || command.equals("knowledge")) {
+                if (positional.size() < 2) {
+                    return usageError(err, "Missing " + (command.equals("verify") ? "<workspace-dir>" : "<dir>"));
+                }
+                Path dir = Path.of(positional.get(1)).toAbsolutePath();
+                return command.equals("verify") ? verify(dir, options.get("--only"), json, out, err) : knowledge(dir, json, out);
             }
             if (!List.of("analyze", "migrate", "apply").contains(command)) {
                 return usageError(err, "Unknown command " + command);
@@ -218,6 +233,58 @@ public class Main {
             }
             return 1;
         }
+    }
+
+    /** Raphael on files already in the workspace; the checks see every client extension, the report can be narrowed with --only. */
+    private static int verify(Path workspace, String only, boolean json, PrintStream out, PrintStream err) throws Exception {
+        if (!Files.isDirectory(workspace)) {
+            err.println("Error: workspace directory not found: " + workspace);
+            return 1;
+        }
+        MigrationPlan files = WorkspaceFiles.read(workspace);
+        if (files.generatedFiles.isEmpty()) {
+            err.println("Error: no client-extensions/ or fragments/ files found in " + workspace);
+            return 1;
+        }
+        MigrationReports.Checks checks = MigrationReports.runChecks(files, false);
+        List<String> warnings = new ArrayList<>(checks.warnings);
+        if (only != null) {
+            List<String> prefixes = new ArrayList<>();
+            for (String name : only.split(",")) {
+                prefixes.add("client-extensions/" + name.trim() + "/");
+            }
+            warnings.removeIf(w -> prefixes.stream().noneMatch(w::contains));
+        }
+        if (json) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("workspace", workspace.toString());
+            result.put("files", files.generatedFiles.size());
+            result.put("warnings", warnings);
+            out.println(Json.write(result));
+        } else {
+            out.println("Raphael checked " + files.generatedFiles.size() + " files in " + workspace +
+                (only == null ? "" : " (reporting " + only + ")") + ":");
+            for (String w : warnings) {
+                out.println("  [WARN] " + w);
+            }
+            if (warnings.isEmpty()) {
+                out.println("  [PASS] No problems found.");
+            }
+        }
+        return warnings.isEmpty() ? 0 : EXIT_WARNINGS;
+    }
+
+    private static int knowledge(Path dir, boolean json, PrintStream out) throws Exception {
+        List<String> written = WorkspaceFiles.exportKnowledge(dir);
+        if (json) {
+            out.println(Json.write(Map.of("dir", dir.toString(), "files", written)));
+        } else {
+            out.println("Knowledge base " + version() + " written to " + dir + ":");
+            for (String f : written) {
+                out.println("  " + f);
+            }
+        }
+        return 0;
     }
 
     private static Map<String, Object> analysisJson(ModuleAnalysisResult a, String report) {

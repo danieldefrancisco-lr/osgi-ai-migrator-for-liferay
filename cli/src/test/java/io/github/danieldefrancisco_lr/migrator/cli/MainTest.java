@@ -120,6 +120,40 @@ public class MainTest {
         assertEquals(GeminiSettings.AUTH_TYPE_AI_STUDIO, aiStudio.get(GeminiSettings.P_AUTH_TYPE));
     }
 
+    @Test
+    public void verifyChecksTheFilesInTheWorkspaceUntilTheyAreClean() throws Exception {
+        Path definition = workspace.resolve("client-extensions/ticket-object/batch/01-02-ticket-definition.batch-engine-data.json");
+        Files.createDirectories(definition.getParent());
+        String json = "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"},\n" +
+            " \"items\": [{\"externalReferenceCode\": \"TICKET\", \"name\": \"Ticket\", \"objectFields\": [\n" +
+            "  {\"businessType\": \"Text\", \"name\": \"title\"FIELD_ERC}]}]}";
+        Files.writeString(definition, json.replace("FIELD_ERC", ""));
+        // Build output is not checked
+        Path built = workspace.resolve("client-extensions/ticket-object/build/batch/01-02-ticket-definition.batch-engine-data.json");
+        Files.createDirectories(built.getParent());
+        Files.writeString(built, "{\"items\": [{\"objectFields\": [{\"name\": \"status\"}]}]}");
+
+        assertEquals(Main.EXIT_WARNINGS, run("verify", workspace.toString()), err.toString());
+        assertTrue(stdout().contains("[WARN] client-extensions/ticket-object/batch/01-02-ticket-definition.batch-engine-data.json " +
+            "has an object field without externalReferenceCode ('title')"), stdout());
+        assertTrue(!stdout().contains("/build/"), stdout());
+
+        assertEquals(0, run("verify", workspace.toString(), "--only", "other-object"), err.toString());
+
+        Files.writeString(definition, json.replace("FIELD_ERC", ", \"externalReferenceCode\": \"TICKET_TITLE\""));
+        assertEquals(0, run("verify", workspace.toString(), "--json"), err.toString());
+        assertTrue(stdout().startsWith("{\"workspace\":") && stdout().contains("\"warnings\":[]"), stdout());
+    }
+
+    @Test
+    public void knowledgeExportsThePlaybooksOfThisVersion() throws Exception {
+        Path dir = tmp.resolve("knowledge");
+        assertEquals(0, run("knowledge", dir.toString()), err.toString());
+        String playbook = Files.readString(dir.resolve("playbooks/03-generation-rules.md"), StandardCharsets.UTF_8);
+        assertTrue(playbook.startsWith("# Michelangelo (The Coder) Playbook"), playbook.substring(0, 80));
+        assertTrue(Files.exists(dir.resolve("blueprints/notification-and-workflow-migration.md")));
+    }
+
     private int run(String... args) {
         out.reset();
         err.reset();

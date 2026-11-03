@@ -87,6 +87,17 @@ java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --save-plan pla
 java -jar osgi-ai-migrator-cli.jar apply path/to/legacy-module --plan plan.txt  # write a reviewed plan
 ```
 
+Two commands work without Gemini, for client extensions written or edited by hand or by a coding agent:
+
+```
+java -jar osgi-ai-migrator-cli.jar verify path/to/liferay-workspace         # Raphael's checks; exit code 3 if there are warnings
+java -jar osgi-ai-migrator-cli.jar verify path/to/liferay-workspace --only loan-object,loan-object-action
+java -jar osgi-ai-migrator-cli.jar knowledge path/to/dir                   # export this version's playbooks and blueprints
+```
+
+`verify` reads every client extension and fragment of the workspace (skipping `build/`, `dist/` and `node_modules/`),
+so cross-file checks such as `function#` actions without their microservice still work with `--only`.
+
 Other options: `--folder <path>` (one folder of the module), `--no-backend` (frontend only),
 `--workspace <dir>`, `--json` (machine-readable output). Run with `--help` for all of them.
 
