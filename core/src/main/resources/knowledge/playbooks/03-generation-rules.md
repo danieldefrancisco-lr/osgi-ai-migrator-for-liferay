@@ -739,7 +739,8 @@ assemble:
     type: objectAction
 ```
 - The action in the object definition uses `"objectActionExecutorKey": "function#[logic-slug]-object-action"` (the id of the `objectAction` entry).
-- Add to `scopes` the Liferay APIs the ported logic calls (e.g. `Liferay.Object.REST.everything` to update the entry or other objects).
+- Add to `scopes` the Liferay APIs the ported logic calls: `c_[objectname].everything` for the REST API of a custom object: `c_` plus the object name in lowercase (validated: object `OamSpikeOrder` → `c_oamspikeorder.everything`, or `.everything.read` / `.everything.write`). E.g. `c_loan.everything` to update a Loan entry with `PATCH /o/c/loans/{id}`.
+- One microservice can serve several actions: give each action its own `objectActionTriggerKey` and branch on the payload's `objectActionTriggerKey`. An action that updates its own entry fires `onAfterUpdate` again: guard the update logic with a condition on `originalObjectEntry` so it runs once.
 - `[port]`: one port per microservice, starting at 58081 and incremented for each microservice in the same migration; use the same value in `.serviceAddress`, `server.port` and `LCP.json`.
 - **`.serviceAddress` is where Liferay reaches the microservice, and it depends on how Liferay runs.** Always generate `localhost:[port]` (Liferay bundle and microservice on the same machine) and list in `MIGRATION.md` how to change it (see 4.4.6). Never hard-code `host.docker.internal` or a cloud host name.
 

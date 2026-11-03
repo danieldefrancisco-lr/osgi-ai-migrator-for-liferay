@@ -31,6 +31,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
    - Model Listeners Detected (0): 
    - Schedulers Detected (0): 
    - Email/Notifications Detected (0): 
+   - Custom Logic to Port (0):
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: YES
@@ -143,6 +144,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
    - Model Listeners Detected (0): 
    - Schedulers Detected (0): 
    - Email/Notifications Detected (0): 
+   - Custom Logic to Port (0):
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: YES
@@ -253,6 +255,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
    - Model Listeners Detected (0): 
    - Schedulers Detected (0): 
    - Email/Notifications Detected (0): 
+   - Custom Logic to Port (0):
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: YES
@@ -378,6 +381,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
    - Model Listeners Detected (0): 
    - Schedulers Detected (0): 
    - Email/Notifications Detected (0): 
+   - Custom Logic to Port (0):
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: YES

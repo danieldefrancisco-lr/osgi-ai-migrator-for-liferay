@@ -10,6 +10,7 @@ detectedPortlets: []
 detectedListeners: []
 detectedSchedulers: []
 detectedNotifications: []
+detectedCustomLogic: []
 rawSourceExtracts:
 --- theme:liferay-look-and-feel.xml ---
 <?xml version="1.0"?>

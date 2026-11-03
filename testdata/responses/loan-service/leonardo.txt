@@ -1,0 +1,32 @@
+## Modernization Blueprint: loan-service
+
+### 1. Liferay Objects
+- Loan (ERC `C_LOAN`, endpoint `/o/c/loans`):
+  - `bookTitle` (String, Text, required)
+  - `borrowerEmail` (String, Text, required)
+  - `loanDate` (Date, Date)
+  - `dueDate` (Date, Date)
+  - `returnDate` (Date, Date)
+  - `lateFee` (Double, Decimal)
+  - `loanStatus` (String, Picklist `PL_LOAN_STATUS`: onLoan, returned), renamed from the reserved `status` column
+
+### 2. Batch Client Extension
+- `loan-object`: folder, picklist `PL_LOAN_STATUS`, Loan definition with its actions.
+
+### 3. Frontend
+- None (no portlets in this module).
+
+### 4. Custom logic
+- LoanLocalServiceImpl.addLoan: sets the loan and due dates (+14 days) and the status -> microservice action on `onAfterAdd`.
+  The e-mail check becomes an Object Validation (manual step).
+- LoanLocalServiceImpl.returnLoan: late fee of 0.50 per day -> microservice action on `onAfterUpdate` when `returnDate` is set.
+- LoanModelListener.onAfterUpdate: POST to the inventory system with a custom payload -> same microservice, `onAfterUpdate`.
+- LoanModelListener.onAfterCreate: logging only -> entry history.
+- LoanLocalServiceImpl.getOverdueLoans: REST filter `dueDate lt [date] and loanStatus eq 'onLoan'`.
+
+### 5. API CONTRACT
+- Object `Loan`, ERC `C_LOAN`, endpoint `/o/c/loans`.
+- Picklist `PL_LOAN_STATUS`, entries URL `/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/PL_LOAN_STATUS/list-type-entries`.
+- Actions: `setLoanDates` (`C_LOAN_ACTION_SET_LOAN_DATES`, onAfterAdd, `function#loan-rules-object-action`),
+  `processReturn` (`C_LOAN_ACTION_PROCESS_RETURN`, onAfterUpdate, `function#loan-rules-object-action`).
+- Microservice: `loan-rules-object-action`, port 58081.

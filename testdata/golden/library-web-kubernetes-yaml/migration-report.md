@@ -30,6 +30,7 @@ Liferay Workspace Root: ${ROOT}/gradle-workspace
    - Model Listeners Detected (0): 
    - Schedulers Detected (0): 
    - Email/Notifications Detected (1): LoanNotificationSender.java
+   - Custom Logic to Port (0):
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: NO

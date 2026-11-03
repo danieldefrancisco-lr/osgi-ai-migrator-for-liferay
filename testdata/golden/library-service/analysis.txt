@@ -10,6 +10,7 @@ detectedPortlets: []
 detectedListeners: [BookModelListener.java]
 detectedSchedulers: [OverdueBooksScheduler.java]
 detectedNotifications: [OverdueBooksScheduler.java]
+detectedCustomLogic: [BookModelListener.onAfterCreate (model listener) -> onAfterAdd, logging only]
 rawSourceExtracts:
 --- service.xml ---
 <?xml version="1.0"?>

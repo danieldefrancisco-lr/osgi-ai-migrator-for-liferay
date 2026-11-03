@@ -10,6 +10,7 @@ detectedPortlets: [LibraryPortlet.java]
 detectedListeners: []
 detectedSchedulers: []
 detectedNotifications: [LoanNotificationSender.java]
+detectedCustomLogic: []
 rawSourceExtracts:
 --- java:portlet:LibraryPortlet.java ---
 package com.acme.library.web.portlet;

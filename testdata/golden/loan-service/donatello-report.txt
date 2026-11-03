@@ -1,0 +1,34 @@
+================================================================================
+DONATELLO (THE ANALYZER) - LEGACY MODULE EXTRACTION REPORT
+================================================================================
+
+Module Name: loan-service
+Source Liferay Platform Version: portal-7.3-ga1
+Liferay Workspace Root: ${ROOT}/gradle-workspace
+
+1. DOMAIN & SERVICE BUILDER:
+   - Has service.xml: YES
+   - Entities Detected (1): Loan
+
+2. USER INTERFACE & PORTLETS:
+   - Has JSP / Portlet: NO
+   - Portlets Detected (0): 
+
+3. OSGI EVENT LISTENERS & LOGIC:
+   - Model Listeners Detected (1): LoanModelListener.java
+   - Schedulers Detected (0): 
+   - Email/Notifications Detected (0): 
+   - Custom Logic to Port (5):
+       * LoanModelListener.onAfterUpdate (model listener) -> onAfterUpdate, calls an external system
+       * LoanModelListener.onAfterCreate (model listener) -> onAfterAdd, logging only
+       * LoanLocalServiceImpl.addLoan (local service impl) -> onAfterAdd
+       * LoanLocalServiceImpl.returnLoan (local service impl) -> standalone
+       * LoanLocalServiceImpl.getOverdueLoans (local service impl) -> query
+
+4. THEMES & LOOK AND FEEL:
+   - Has Theme Artifacts: NO
+
+5. EXTRACTED SOURCE FILES (3 files):
+   - service.xml
+   - java:listener:LoanModelListener.java
+   - java:localservice:LoanLocalServiceImpl.java

@@ -1,0 +1,11 @@
+Success
+Raphael (Verifier): Successfully written modern artifacts to:
+${ROOT}/gradle-workspace
+
+Files created: 12
+
+Migration History & Action Checklist saved to:
+  -> docs/migrations/loan-migration-report.md
+  -> client-extensions/loan-rules-object-action/MIGRATION.md
+  -> client-extensions/loan-object/MIGRATION.md
+

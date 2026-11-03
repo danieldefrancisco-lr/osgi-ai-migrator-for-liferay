@@ -55,6 +55,8 @@ public class LegacyModuleAnalyzer {
         public List<String> detectedListeners = new ArrayList<>();
         public List<String> detectedSchedulers = new ArrayList<>();
         public List<String> detectedNotifications = new ArrayList<>();
+        /** Methods of listeners, wrappers and *LocalServiceImpl classes whose logic must be ported, with their target trigger. */
+        public List<String> detectedCustomLogic = new ArrayList<>();
         public Map<String, String> rawSourceExtracts = new HashMap<>();
     }
 
@@ -113,6 +115,13 @@ public class LegacyModuleAnalyzer {
                     }
                     if (content.contains("ServiceWrapper") || content.contains("LocalServiceWrapper")) {
                         result.rawSourceExtracts.put("java:wrapper:" + fileName, content);
+                    }
+                    // Service Builder keeps generated code in Base*LocalServiceImpl: every method here is custom logic
+                    if (fileName.endsWith("LocalServiceImpl.java") && !fileName.startsWith("Base")) {
+                        result.rawSourceExtracts.put("java:localservice:" + fileName, content);
+                    }
+                    for (CustomLogicExtractor.LogicUnit unit : CustomLogicExtractor.extract(fileName, content)) {
+                        result.detectedCustomLogic.add(unit.summary());
                     }
                     if (content.contains("SchedulerEntry") || content.contains("BaseMessageListener") || content.contains("DispatchTaskExecutor")) {
                         result.detectedSchedulers.add(fileName);

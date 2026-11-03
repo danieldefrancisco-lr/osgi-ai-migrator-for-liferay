@@ -41,6 +41,7 @@ public class Dumps {
         sb.append("detectedListeners: ").append(a.detectedListeners).append("\n");
         sb.append("detectedSchedulers: ").append(a.detectedSchedulers).append("\n");
         sb.append("detectedNotifications: ").append(a.detectedNotifications).append("\n");
+        sb.append("detectedCustomLogic: ").append(a.detectedCustomLogic).append("\n");
         sb.append("rawSourceExtracts:\n");
         for (Map.Entry<String, String> e : a.rawSourceExtracts.entrySet()) {
             sb.append("--- ").append(e.getKey()).append(" ---\n").append(e.getValue()).append("\n");

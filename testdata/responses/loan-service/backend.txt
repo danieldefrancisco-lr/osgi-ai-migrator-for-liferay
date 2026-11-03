@@ -1,0 +1,379 @@
+Here are the Batch Client Extension and the Object Action microservice.
+
+=== FILE: client-extensions/loan-object/client-extension.yaml ===
+assemble:
+    - from: batch
+      into: batch
+
+loan-object-batch:
+    name: Loan Object Initialization
+    oAuthApplicationHeadlessServer: loan-object-oauth
+    type: batch
+
+loan-object-oauth:
+    .serviceAddress: localhost:8080
+    .serviceScheme: http
+    name: Loan Object OAuth Server
+    scopes:
+        - Liferay.Headless.Batch.Engine.everything
+        - Liferay.Object.Admin.REST.everything
+        - Liferay.Headless.Admin.List.Type.everything
+    type: oAuthApplicationHeadlessServer
+=== END FILE ===
+
+=== FILE: client-extensions/loan-object/batch/01-00-folder-definition.batch-engine-data.json ===
+{
+  "configuration": {
+    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectFolder",
+    "parameters": {
+      "createStrategy": "UPSERT",
+      "updateStrategy": "UPDATE"
+    }
+  },
+  "items": [
+    {
+      "externalReferenceCode": "FOLDER_LOANS",
+      "label": {"en_US": "Loans"},
+      "name": "Loans"
+    }
+  ]
+}
+=== END FILE ===
+
+=== FILE: client-extensions/loan-object/batch/01-01-loan-picklists.batch-engine-data.json ===
+{
+  "configuration": {
+    "className": "com.liferay.headless.admin.list.type.dto.v1_0.ListTypeDefinition",
+    "parameters": {
+      "createStrategy": "UPSERT",
+      "updateStrategy": "UPDATE"
+    }
+  },
+  "items": [
+    {
+      "externalReferenceCode": "PL_LOAN_STATUS",
+      "listTypeEntries": [
+        {"externalReferenceCode": "PL_LOAN_STATUS_ONLOAN", "key": "onLoan", "name": "On Loan", "name_i18n": {"en-US": "On Loan"}},
+        {"externalReferenceCode": "PL_LOAN_STATUS_RETURNED", "key": "returned", "name": "Returned", "name_i18n": {"en-US": "Returned"}}
+      ],
+      "name": "Loan Status",
+      "name_i18n": {"en-US": "Loan Status"}
+    }
+  ]
+}
+=== END FILE ===
+
+=== FILE: client-extensions/loan-object/batch/01-02-loan-definition.batch-engine-data.json ===
+{
+  "configuration": {
+    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "importStrategy": "ON_ERROR_FAIL",
+      "updateStrategy": "UPDATE"
+    },
+    "taskItemDelegateName": "DEFAULT"
+  },
+  "items": [
+    {
+      "active": true,
+      "enableObjectEntryHistory": true,
+      "externalReferenceCode": "C_LOAN",
+      "label": {"en_US": "Loan"},
+      "name": "Loan",
+      "objectActions": [
+        {
+          "active": true,
+          "conditionExpression": "",
+          "description": "Replaces LoanLocalServiceImpl.addLoan (loan and due dates, status)",
+          "externalReferenceCode": "C_LOAN_ACTION_SET_LOAN_DATES",
+          "label": {"en_US": "Set Loan Dates"},
+          "name": "setLoanDates",
+          "objectActionExecutorKey": "function#loan-rules-object-action",
+          "objectActionTriggerKey": "onAfterAdd",
+          "parameters": {}
+        },
+        {
+          "active": true,
+          "conditionExpression": "",
+          "description": "Replaces LoanLocalServiceImpl.returnLoan (late fee) and LoanModelListener.onAfterUpdate (inventory)",
+          "externalReferenceCode": "C_LOAN_ACTION_PROCESS_RETURN",
+          "label": {"en_US": "Process Return"},
+          "name": "processReturn",
+          "objectActionExecutorKey": "function#loan-rules-object-action",
+          "objectActionTriggerKey": "onAfterUpdate",
+          "parameters": {}
+        }
+      ],
+      "objectFields": [
+        {"DBType": "String", "businessType": "Text", "externalReferenceCode": "C_LOAN_BOOK_TITLE", "indexed": true, "indexedAsKeyword": true, "label": {"en_US": "Book Title"}, "name": "bookTitle", "required": true, "type": "String"},
+        {"DBType": "String", "businessType": "Text", "externalReferenceCode": "C_LOAN_BORROWER_EMAIL", "indexed": true, "indexedAsKeyword": true, "label": {"en_US": "Borrower Email"}, "name": "borrowerEmail", "required": true, "type": "String"},
+        {"DBType": "Date", "businessType": "Date", "externalReferenceCode": "C_LOAN_LOAN_DATE", "indexed": true, "indexedAsKeyword": false, "label": {"en_US": "Loan Date"}, "name": "loanDate", "objectFieldSettings": [], "required": false, "type": "Date"},
+        {"DBType": "Date", "businessType": "Date", "externalReferenceCode": "C_LOAN_DUE_DATE", "indexed": true, "indexedAsKeyword": false, "label": {"en_US": "Due Date"}, "name": "dueDate", "objectFieldSettings": [], "required": false, "type": "Date"},
+        {"DBType": "Date", "businessType": "Date", "externalReferenceCode": "C_LOAN_RETURN_DATE", "indexed": true, "indexedAsKeyword": false, "label": {"en_US": "Return Date"}, "name": "returnDate", "objectFieldSettings": [], "required": false, "type": "Date"},
+        {"DBType": "Double", "businessType": "Decimal", "externalReferenceCode": "C_LOAN_LATE_FEE", "indexed": false, "indexedAsKeyword": false, "label": {"en_US": "Late Fee"}, "name": "lateFee", "required": false, "type": "Double"},
+        {"DBType": "String", "businessType": "Picklist", "externalReferenceCode": "C_LOAN_LOAN_STATUS", "indexed": true, "indexedAsKeyword": true, "label": {"en_US": "Loan Status"}, "listTypeDefinitionExternalReferenceCode": "PL_LOAN_STATUS", "name": "loanStatus", "required": false, "type": "String"}
+      ],
+      "objectFolderExternalReferenceCode": "FOLDER_LOANS",
+      "panelCategoryKey": "control_panel.object",
+      "pluralLabel": {"en_US": "Loans"},
+      "portlet": false,
+      "scope": "company",
+      "status": {"code": 0},
+      "titleObjectFieldName": "bookTitle"
+    }
+  ]
+}
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/client-extension.yaml ===
+assemble:
+    - fromTask: bootJar
+
+loan-rules-oauth-application-user-agent:
+    .serviceAddress: localhost:58081
+    .serviceScheme: http
+    name: Loan Rules OAuth Application User Agent
+    scopes:
+        - c_loan.everything
+        - Liferay.Headless.Admin.User.everything.read
+    type: oAuthApplicationUserAgent
+
+loan-rules-object-action:
+    name: Loan Rules Object Action
+    oAuth2ApplicationExternalReferenceCode: loan-rules-oauth-application-user-agent
+    resourcePath: /object/action/loan-rules
+    type: objectAction
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/build.gradle ===
+buildscript {
+	dependencies {
+		classpath group: "org.springframework.boot", name: "spring-boot-gradle-plugin", version: "3.3.5"
+	}
+
+	repositories {
+		maven {
+			url "https://repository-cdn.liferay.com/nexus/content/groups/public"
+		}
+
+		mavenCentral()
+	}
+}
+
+apply plugin: "java-library"
+apply plugin: "org.springframework.boot"
+
+dependencies {
+	implementation group: "com.liferay", name: "com.liferay.client.extension.util.spring.boot3", version: "latest.release"
+	implementation group: "org.springframework.boot", name: "spring-boot-starter-actuator", version: "3.3.5"
+	implementation group: "org.springframework.boot", name: "spring-boot-starter-oauth2-resource-server", version: "3.3.5"
+	implementation group: "org.springframework.boot", name: "spring-boot-starter-web", version: "3.3.5"
+}
+
+repositories {
+	maven {
+		url "https://repository-cdn.liferay.com/nexus/content/groups/public"
+	}
+
+	mavenCentral()
+}
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/Dockerfile ===
+FROM liferay/jar-runner:latest
+
+COPY --chown=liferay:liferay *.jar /opt/liferay/jar-runner.jar
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/LCP.json ===
+{
+	"cpu": 1,
+	"env": {
+		"LIFERAY_ROUTES_CLIENT_EXTENSION": "/etc/liferay/lxc/ext-init-metadata",
+		"LIFERAY_ROUTES_DXP": "/etc/liferay/lxc/dxp-metadata"
+	},
+	"environments": {
+		"infra": {
+			"deploy": false
+		}
+	},
+	"id": "__PROJECT_ID__",
+	"kind": "Deployment",
+	"livenessProbe": {
+		"httpGet": {
+			"path": "/actuator/health",
+			"port": 58081
+		}
+	},
+	"loadBalancer": {
+		"targetPort": 58081
+	},
+	"memory": 512,
+	"readinessProbe": {
+		"httpGet": {
+			"path": "/actuator/health",
+			"port": 58081
+		}
+	},
+	"scale": 1
+}
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/src/main/resources/application.properties ===
+spring.config.import=\
+    classpath:/application-default.properties,\
+    optional:configtree:${LIFERAY_ROUTES_CLIENT_EXTENSION}/,\
+    optional:configtree:${LIFERAY_ROUTES_DXP}/
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/src/main/resources/application-default.properties ===
+com.liferay.lxc.dxp.domains=localhost:8080
+com.liferay.lxc.dxp.mainDomain=localhost:8080
+com.liferay.lxc.dxp.server.protocol=http
+
+liferay.oauth.application.external.reference.codes=loan-rules-oauth-application-user-agent
+liferay.oauth.urls.excludes=/actuator/health/**
+
+server.port=58081
+
+inventory.returns.url=https://inventory.acme.com/api/returns
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/src/main/java/com/acme/loans/rules/LoanRulesApplication.java ===
+package com.acme.loans.rules;
+
+import com.liferay.client.extension.util.spring.boot3.ClientExtensionUtilSpringBootComponentScan;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Import;
+
+@Import(ClientExtensionUtilSpringBootComponentScan.class)
+@SpringBootApplication
+public class LoanRulesApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(LoanRulesApplication.class, args);
+	}
+
+}
+=== END FILE ===
+
+=== FILE: client-extensions/loan-rules-object-action/src/main/java/com/acme/loans/rules/LoanRulesObjectActionRestController.java ===
+package com.acme.loans.rules;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.liferay.client.extension.util.spring.boot3.BaseRestController;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClient;
+
+/**
+ * Ports LoanLocalServiceImpl.addLoan / returnLoan and LoanModelListener.onAfterUpdate.
+ */
+@RequestMapping("/object/action/loan-rules")
+@RestController
+public class LoanRulesObjectActionRestController extends BaseRestController {
+
+	@PostMapping
+	public ResponseEntity<String> post(@AuthenticationPrincipal Jwt jwt, @RequestBody String json) throws Exception {
+		log(jwt, _log, json);
+
+		JsonNode payload = _objectMapper.readTree(json);
+
+		String trigger = payload.path("objectActionTriggerKey").asText();
+		long entryId = payload.path("objectEntry").path("objectEntryId").asLong();
+		JsonNode values = payload.path("objectEntry").path("values");
+		JsonNode originalValues = payload.path("originalObjectEntry").path("values");
+
+		if (trigger.equals("onAfterAdd")) {
+			// LoanLocalServiceImpl.addLoan: a loan lasts 14 days
+			LocalDate today = LocalDate.now();
+
+			Map<String, Object> patch = new LinkedHashMap<>();
+
+			patch.put("loanDate", today.toString());
+			patch.put("dueDate", today.plusDays(14).toString());
+			patch.put("loanStatus", "onLoan");
+
+			_patchLoan(jwt, entryId, patch);
+		}
+		else if (trigger.equals("onAfterUpdate") && !values.path("returnDate").asText().isEmpty() &&
+				 originalValues.path("returnDate").asText().isEmpty()) {
+
+			// LoanLocalServiceImpl.returnLoan: late returns pay 0.50 per day after the due date
+			LocalDate dueDate = LocalDate.parse(values.path("dueDate").asText().substring(0, 10));
+			long daysLate = ChronoUnit.DAYS.between(dueDate, LocalDate.now());
+			double lateFee = daysLate > 0 ? daysLate * 0.5 : 0;
+
+			Map<String, Object> patch = new LinkedHashMap<>();
+
+			patch.put("lateFee", lateFee);
+			patch.put("loanStatus", "returned");
+
+			_patchLoan(jwt, entryId, patch);
+
+			// LoanModelListener.onAfterUpdate: tell the inventory system the copy is available again
+			Map<String, Object> inventory = new LinkedHashMap<>();
+
+			inventory.put("title", values.path("bookTitle").asText());
+			inventory.put("lateFee", lateFee);
+
+			_restClient.post()
+				.uri(_inventoryReturnsURL)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(inventory)
+				.retrieve()
+				.toBodilessEntity();
+		}
+
+		return new ResponseEntity<>(json, HttpStatus.OK);
+	}
+
+	private void _patchLoan(Jwt jwt, long entryId, Map<String, Object> patch) {
+		_restClient.patch()
+			.uri(_lxcDXPServerProtocol + "://" + _lxcDXPMainDomain + "/o/c/loans/" + entryId)
+			.header("Authorization", "Bearer " + jwt.getTokenValue())
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(patch)
+			.retrieve()
+			.toBodilessEntity();
+	}
+
+	private static final Log _log = LogFactory.getLog(LoanRulesObjectActionRestController.class);
+
+	private static final ObjectMapper _objectMapper = new ObjectMapper();
+
+	@Value("${inventory.returns.url}")
+	private String _inventoryReturnsURL;
+
+	@Value("${com.liferay.lxc.dxp.mainDomain}")
+	private String _lxcDXPMainDomain;
+
+	@Value("${com.liferay.lxc.dxp.server.protocol}")
+	private String _lxcDXPServerProtocol;
+
+	private final RestClient _restClient = RestClient.create();
+
+}
+=== END FILE ===

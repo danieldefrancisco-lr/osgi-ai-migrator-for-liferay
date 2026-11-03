@@ -10,6 +10,7 @@ detectedPortlets: []
 detectedListeners: []
 detectedSchedulers: [TaskCleanupExecutor.java]
 detectedNotifications: []
+detectedCustomLogic: []
 rawSourceExtracts:
 --- service.xml ---
 <?xml version="1.0"?>

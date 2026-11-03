@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE service-builder PUBLIC "-//Liferay//DTD Service Builder 7.4.0//EN" "http://www.liferay.com/dtd/liferay-service-builder_7_4_0.dtd">
+
+<service-builder dependency-injector="ds" package-path="com.acme.loans">
+	<namespace>Loans</namespace>
+	<entity local-service="true" name="Loan" remote-service="true" uuid="true">
+		<column name="loanId" primary="true" type="long" />
+		<column name="companyId" type="long" />
+		<column name="bookTitle" type="String" />
+		<column name="borrowerEmail" type="String" />
+		<column name="loanDate" type="Date" />
+		<column name="dueDate" type="Date" />
+		<column name="returnDate" type="Date" />
+		<column name="lateFee" type="double" />
+		<column name="status" type="String" />
+	</entity>
+</service-builder>

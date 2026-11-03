@@ -23,6 +23,8 @@ public class MigrationReports {
     /** Object API sub-paths that Liferay does not have, e.g. `${OBJECT_PATH}/count`. */
     private static final Pattern INVENTED_ENDPOINT = Pattern.compile("/(count|search|list|all)['\"`?]");
     private static final Pattern URL_WITHOUT_O_PREFIX = Pattern.compile("['\"`]/(?:headless-[\\w-]+|c)/");
+    /** A custom object scope written as C_Loan.everything or Liferay.Object.C_Loan.everything (validated: it is c_loan.everything). */
+    private static final Pattern OBJECT_SCOPE = Pattern.compile("(?m)^\\s*-\\s+((?:Liferay\\.Object\\.)?[Cc]_(\\w+)\\.everything\\S*)");
     /** The business types of Liferay Objects fields. */
     private static final List<String> BUSINESS_TYPES = List.of(
         "Aggregation", "Attachment", "AutoIncrement", "Boolean", "Date", "DateTime", "Decimal", "Encrypted", "Formula",
@@ -51,7 +53,12 @@ public class MigrationReports {
         sb.append("3. OSGI EVENT LISTENERS & LOGIC:\n");
         sb.append("   - Model Listeners Detected (").append(analysisResult.detectedListeners.size()).append("): ").append(String.join(", ", analysisResult.detectedListeners)).append("\n");
         sb.append("   - Schedulers Detected (").append(analysisResult.detectedSchedulers.size()).append("): ").append(String.join(", ", analysisResult.detectedSchedulers)).append("\n");
-        sb.append("   - Email/Notifications Detected (").append(analysisResult.detectedNotifications.size()).append("): ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n\n");
+        sb.append("   - Email/Notifications Detected (").append(analysisResult.detectedNotifications.size()).append("): ").append(String.join(", ", analysisResult.detectedNotifications)).append("\n");
+        sb.append("   - Custom Logic to Port (").append(analysisResult.detectedCustomLogic.size()).append("):\n");
+        for (String unit : analysisResult.detectedCustomLogic) {
+            sb.append("       * ").append(unit).append("\n");
+        }
+        sb.append("\n");
 
         sb.append("4. THEMES & LOOK AND FEEL:\n");
         sb.append("   - Has Theme Artifacts: ").append(analysisResult.hasTheme ? "YES" : "NO").append("\n\n");
@@ -103,6 +110,15 @@ public class MigrationReports {
                         if (!plan.generatedFiles.containsKey(dir + required)) {
                             warnings.add(path + " is a microservice client extension without " + dir + required + "; the workspace build fails with 'Required file \"" + required + "\" not found'.");
                         }
+                    }
+                    checkMicroservicePorts(path, dir, content, plan, warnings);
+                }
+                Matcher objectScope = OBJECT_SCOPE.matcher(content);
+                while (objectScope.find()) {
+                    String scope = objectScope.group(1);
+                    if (!scope.startsWith("c_") || !scope.equals(scope.toLowerCase())) {
+                        warnings.add(path + " uses the scope '" + scope + "'; a custom object's scope is 'c_' + its name in lowercase, e.g. 'c_" +
+                            objectScope.group(2).toLowerCase() + ".everything'.");
                     }
                 }
                 if (content.contains("host.docker.internal")) {
@@ -248,6 +264,18 @@ public class MigrationReports {
             warnings.add(path + " is a standalone ObjectAction batch file and was not written; declare the actions in the 'objectActions' array of the object definition.");
             return;
         }
+        if (content.contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule\"")) {
+            List<String> labels = new ArrayList<>();
+            for (String rule : arrayItems(content, "items")) {
+                labels.add(nameOf(rule));
+            }
+            warnings.add(path + " holds Object Validations and was not written (they are not deployed by batch); create them in " +
+                "Control Panel -> Objects -> [Object] -> Validations: " + String.join(", ", labels) + ".");
+            return;
+        }
+        if (content.contains("\"com.liferay.object.rest.dto.v1_0.ObjectEntry\"")) {
+            warnings.add(path + " imports object entries; deploy it only if they are data migrated from the legacy database, not examples.");
+        }
         if (content.contains("\"com.liferay.notification.rest.dto.v1_0.NotificationTemplate\"")) {
             checkNotificationTerms(path, content, plan, warnings);
         }
@@ -291,6 +319,11 @@ public class MigrationReports {
                 !action.contains("\"objectDefinitionExternalReferenceCode\"")) {
                 warnings.add(path + " action " + name + " needs 'objectDefinitionExternalReferenceCode' in its parameters (ObjectActionParametersException).");
             }
+            String condition = topLevelString(action, "conditionExpression");
+            if (condition != null && condition.contains("original")) {
+                warnings.add(path + " action " + name + " has a conditionExpression on the previous values (" + condition +
+                    "); conditions only see the current entry, so check originalObjectEntry in the microservice instead.");
+            }
             if (action.matches("(?s).*\"objectActionTriggerKey\"\\s*:\\s*\"onBefore.*")) {
                 warnings.add(path + " action " + name + " uses an onBefore* trigger, which Object Actions do not have; use an onAfter* trigger or an Object Validation.");
             }
@@ -299,6 +332,36 @@ public class MigrationReports {
                 warnings.add(path + " action " + name + " calls function#" + function.group(1) +
                     ", but no generated client-extension.yaml defines that objectAction; deploy it before the batch.");
             }
+        }
+    }
+
+    /** The port Liferay calls (.serviceAddress), the one Spring Boot listens on and the one LCP.json probes must be the same. */
+    private static void checkMicroservicePorts(String path, String dir, String yaml, MigrationPlan plan, List<String> warnings) {
+        Map<String, String> ports = new java.util.LinkedHashMap<>();
+        Matcher address = Pattern.compile("\\.serviceAddress:\\s*[\\w.-]+:(\\d+)").matcher(yaml);
+        if (address.find()) {
+            ports.put(".serviceAddress in " + path, address.group(1));
+        }
+        String properties = plan.generatedFiles.get(dir + "src/main/resources/application-default.properties");
+        if (properties != null) {
+            Matcher port = Pattern.compile("(?m)^server\\.port\\s*=\\s*(\\d+)").matcher(properties);
+            if (port.find()) {
+                ports.put("server.port in application-default.properties", port.group(1));
+            }
+        }
+        String lcp = plan.generatedFiles.get(dir + "LCP.json");
+        if (lcp != null) {
+            Matcher port = Pattern.compile("\"targetPort\"\\s*:\\s*(\\d+)").matcher(lcp);
+            if (port.find()) {
+                ports.put("targetPort in LCP.json", port.group(1));
+            }
+        }
+        if (new java.util.HashSet<>(ports.values()).size() > 1) {
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, String> p : ports.entrySet()) {
+                sb.append(sb.length() == 0 ? "" : ", ").append(p.getKey()).append(" = ").append(p.getValue());
+            }
+            warnings.add(dir + " uses different ports (" + sb + "); Liferay cannot reach the microservice.");
         }
     }
 
@@ -411,7 +474,7 @@ public class MigrationReports {
                 topLevel.append(c);
             }
         }
-        Matcher m = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"").matcher(topLevel);
+        Matcher m = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"").matcher(topLevel);
         return m.find() ? m.group(1) : null;
     }
 

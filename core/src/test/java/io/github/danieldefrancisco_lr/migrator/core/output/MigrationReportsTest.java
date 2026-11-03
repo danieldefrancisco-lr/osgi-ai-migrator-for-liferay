@@ -91,6 +91,25 @@ class MigrationReportsTest {
     }
 
     @Test
+    void flagsValidationFilesExampleEntriesAndConditionsOnPreviousValues() {
+        MigrationPlan plan = file("client-extensions/l-object/batch/02-01-loan-validations.batch-engine-data.json",
+            "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule\"},\n" +
+            " \"items\": [{\"name\": \"validateBorrowerEmail\", \"engine\": \"ddm\"}]}");
+        plan.generatedFiles.put("client-extensions/l-object/batch/03-00-loan-entries.batch-engine-data.json",
+            "{\"configuration\": {\"className\": \"com.liferay.object.rest.dto.v1_0.ObjectEntry\"}, \"items\": []}");
+        plan.generatedFiles.put("client-extensions/l-object/batch/01-02-loan-definition.batch-engine-data.json",
+            DEFINITION_HEAD + "  \"objectActions\": [{\"externalReferenceCode\": \"LOAN_ACTION_RETURN\", \"name\": \"processReturn\"," +
+            " \"conditionExpression\": \"loanStatus == \\\"returned\\\" && originalObjectEntry.values.loanStatus != \\\"returned\\\"\"," +
+            " \"objectActionExecutorKey\": \"webhook\", \"objectActionTriggerKey\": \"onAfterUpdate\", \"parameters\": {\"url\": \"https://x\"}}]}]}");
+
+        String report = report(plan);
+
+        assertTrue(report.contains("holds Object Validations and was not written") && report.contains("'validateBorrowerEmail'"), report);
+        assertTrue(report.contains("imports object entries; deploy it only if they are data migrated"), report);
+        assertTrue(report.contains("action 'processReturn' has a conditionExpression on the previous values"), report);
+    }
+
+    @Test
     void flagsStandaloneObjectActionFiles() {
         String report = report(file("client-extensions/t-object/batch/01-03-ticket-actions.batch-engine-data.json",
             "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectAction\"}, \"items\": []}"));
@@ -102,10 +121,13 @@ class MigrationReportsTest {
     void checksMicroserviceFilesAndAddresses() {
         String yaml = "assemble:\n    - fromTask: bootJar\n\n" +
             "ticket-sync-oauth-application-user-agent:\n    .serviceAddress: host.docker.internal:58081\n    .serviceScheme: http\n" +
+            "    scopes:\n        - Liferay.Object.C_Ticket.everything\n        - c_ticket.everything.read\n" +
             "    type: oAuthApplicationUserAgent\n\n" +
             "ticket-sync-object-action:\n    resourcePath: /object/action/ticket-sync\n    type: objectAction\n";
         MigrationPlan plan = file("client-extensions/ticket-sync-object-action/client-extension.yaml", yaml);
         plan.generatedFiles.put("client-extensions/ticket-sync-object-action/Dockerfile", "FROM liferay/jar-runner:latest\n");
+        plan.generatedFiles.put("client-extensions/ticket-sync-object-action/src/main/resources/application-default.properties",
+            "com.liferay.lxc.dxp.mainDomain=localhost:8080\nserver.port=58082\n");
         plan.generatedFiles.put("client-extensions/t-object/batch/01-02-ticket-definition.batch-engine-data.json",
             DEFINITION_HEAD + "  \"objectActions\": [{\"externalReferenceCode\": \"TICKET_ACTION_SYNC\", \"name\": \"sync\"," +
             " \"objectActionExecutorKey\": \"function#ticket-sync-object-action\", \"objectActionTriggerKey\": \"onAfterUpdate\"}]}]}");
@@ -115,6 +137,10 @@ class MigrationReportsTest {
         assertTrue(report.contains("without client-extensions/ticket-sync-object-action/LCP.json"), report);
         assertFalse(report.contains("without client-extensions/ticket-sync-object-action/Dockerfile"), report);
         assertTrue(report.contains("hard-codes host.docker.internal"), report);
+        assertTrue(report.contains("uses the scope 'Liferay.Object.C_Ticket.everything'; a custom object's scope is 'c_' + its name in lowercase, e.g. 'c_ticket.everything'"), report);
+        assertFalse(report.contains("'c_ticket.everything.read';"), report);
+        assertTrue(report.contains("uses different ports (.serviceAddress in client-extensions/ticket-sync-object-action/client-extension.yaml = 58081, " +
+            "server.port in application-default.properties = 58082)"), report);
         assertFalse(report.contains("no generated client-extension.yaml defines"), report);
         assertTrue(report.contains(":bootRun"), report);
     }

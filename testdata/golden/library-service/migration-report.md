@@ -30,6 +30,8 @@ Liferay Workspace Root: ${ROOT}/gradle-workspace
    - Model Listeners Detected (1): BookModelListener.java
    - Schedulers Detected (1): OverdueBooksScheduler.java
    - Email/Notifications Detected (1): OverdueBooksScheduler.java
+   - Custom Logic to Port (1):
+       * BookModelListener.onAfterCreate (model listener) -> onAfterAdd, logging only
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: NO

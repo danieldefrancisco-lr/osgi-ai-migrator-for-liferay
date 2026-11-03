@@ -29,6 +29,13 @@ Listeners Detected: BookModelListener.java
 Schedulers Detected: OverdueBooksScheduler.java
 Notifications Detected: OverdueBooksScheduler.java
 
+CUSTOM LOGIC TO PORT (one line per method, with the Object Action trigger it maps to; the code is in the files below):
+- BookModelListener.onAfterCreate (model listener) -> onAfterAdd, logging only
+Decide for EACH line (mapping playbook 3.1): 'logging only' -> entry history, no action; logic a native action can express
+(set fields, create an entry, e-mail, plain HTTP POST) -> native Object Action; anything else (calculations, conditions on several fields,
+calls to external systems with custom payloads, several steps) -> the Spring Boot objectAction microservice; 'query' methods -> REST
+filters in the frontend; validations that throw -> Object Validations. Name every decision in the blueprint.
+
 REQUIRED FIELD RENAMES (these service.xml columns use names Liferay Objects reserve; use the new names everywhere: objectFields, API CONTRACT, frontend, notification terms):
 - Book.status -> bookStatus
 

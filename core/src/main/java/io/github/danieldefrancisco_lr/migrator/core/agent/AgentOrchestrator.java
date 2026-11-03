@@ -52,6 +52,16 @@ public class AgentOrchestrator {
         legacyContext.append("Listeners Detected: ").append(String.join(", ", analysis.detectedListeners)).append("\n");
         legacyContext.append("Schedulers Detected: ").append(String.join(", ", analysis.detectedSchedulers)).append("\n");
         legacyContext.append("Notifications Detected: ").append(String.join(", ", analysis.detectedNotifications)).append("\n\n");
+        if (!analysis.detectedCustomLogic.isEmpty()) {
+            legacyContext.append("CUSTOM LOGIC TO PORT (one line per method, with the Object Action trigger it maps to; the code is in the files below):\n");
+            for (String unit : analysis.detectedCustomLogic) {
+                legacyContext.append("- ").append(unit).append("\n");
+            }
+            legacyContext.append("Decide for EACH line (mapping playbook 3.1): 'logging only' -> entry history, no action; logic a native action can express\n" +
+                "(set fields, create an entry, e-mail, plain HTTP POST) -> native Object Action; anything else (calculations, conditions on several fields,\n" +
+                "calls to external systems with custom payloads, several steps) -> the Spring Boot objectAction microservice; 'query' methods -> REST\n" +
+                "filters in the frontend; validations that throw -> Object Validations. Name every decision in the blueprint.\n\n");
+        }
         String renames = reservedColumnRenames(analysis);
         if (!renames.isEmpty()) {
             legacyContext.append("REQUIRED FIELD RENAMES (these service.xml columns use names Liferay Objects reserve; use the new names everywhere: objectFields, API CONTRACT, frontend, notification terms):\n")
@@ -165,8 +175,13 @@ public class AgentOrchestrator {
                 "12. Object Action 'name' is camelCase with only letters and digits (e.g. 'notifyUserOnLoanCreation'); the readable text goes in 'label'.\n" +
                 "13. The '01-04-[entity]-actions' file repeats the COMPLETE object definition of 01-02 (all its properties and every objectField with the same externalReferenceCodes) plus 'objectActions'. Never send only the ERC and name.\n" +
                 "14. Notification Template terms are '[%' + the object's 'name' in UPPERCASE (NOT its externalReferenceCode) + '_' + the field 'name' in UPPERCASE without underscores + '%]': object 'Loan', field 'dueDate' -> '[%LOAN_DUEDATE%]'. Use only fields of that object (no fields of related objects or users, e.g. NOT '[%LOAN_BORROWERUSER_EMAILADDRESS%]'); the recipient 'to' is a Text email field of the object, e.g. '[%LOAN_BORROWEREMAIL%]' (add that field if the legacy code e-mails a user).\n" +
+                "15. A microservice action uses 'objectActionExecutorKey': 'function#[logic-slug]-object-action'. In its client-extension.yaml, '.serviceAddress' is ALWAYS 'localhost:[port]' and application-default.properties points to 'localhost:8080': never hard-code host.docker.internal or another host; the other environments are documented in MIGRATION.md.\n" +
+                "    Generate ONE microservice per migrated module, serving all its actions (branch on 'objectActionTriggerKey'): logic of the same trigger runs in order in one call (e.g. compute the late fee, then send it to the inventory). Port 58081 (58082, 58083... only for further modules); the same port in '.serviceAddress', 'server.port' and LCP.json.\n" +
+                "    To call a custom object's REST API, the OAuth scope is 'c_' + the object name in lowercase + '.everything' (object 'Loan' -> 'c_loan.everything'), never 'C_Loan' or 'Liferay.Object.C_Loan'.\n" +
                 "16. 'businessType' is one of: Text, LongText, RichText, Integer, LongInteger, Decimal, PrecisionDecimal, Boolean, Date, DateTime, Picklist, MultiselectPicklist, Attachment, Relationship. There is NO 'User' business type: a user id is a LongInteger.\n" +
-                "15. A microservice action uses 'objectActionExecutorKey': 'function#[logic-slug]-object-action'. In its client-extension.yaml, '.serviceAddress' is ALWAYS 'localhost:[port]' and application-default.properties points to 'localhost:8080': never hard-code host.docker.internal or another host; the other environments are documented in MIGRATION.md.\n";
+                "17. 'conditionExpression' can only use the entry's current field values. Conditions on the previous value (e.g. status changed to 'returned') go in the microservice, which receives 'originalObjectEntry'.\n" +
+                "18. NEVER generate ObjectEntry batch files with example or invented entries: data is only migrated when the blueprint plans a data migration from the legacy database.\n" +
+                "19. Do not generate ObjectValidationRule batch files: they are not deployed. List each validation (field, rule, error message, legacy method) in the blueprint so MIGRATION.md tells the administrator to create it.\n";
 
             String backendPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy Batch Client Extension files.\n" +
                 "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +

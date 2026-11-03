@@ -30,6 +30,7 @@ Liferay Workspace Root: ${ROOT}/standalone
    - Model Listeners Detected (0): 
    - Schedulers Detected (1): TaskCleanupExecutor.java
    - Email/Notifications Detected (0): 
+   - Custom Logic to Port (0):
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: NO

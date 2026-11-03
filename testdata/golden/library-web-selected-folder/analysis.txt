@@ -10,6 +10,7 @@ detectedPortlets: []
 detectedListeners: []
 detectedSchedulers: []
 detectedNotifications: []
+detectedCustomLogic: []
 rawSourceExtracts:
 --- jsp:src/main/resources/META-INF/resources/view.jsp ---
 <%@ include file="/init.jsp" %>

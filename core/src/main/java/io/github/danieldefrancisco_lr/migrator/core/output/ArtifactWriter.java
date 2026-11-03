@@ -49,7 +49,8 @@ public class ArtifactWriter {
             // Object Actions belong in the ObjectDefinition ("-actions" files that repeat the definition are kept)
             if (relativePath.endsWith("-validations.batch-engine-data.json") ||
                 (relativePath.endsWith(".batch-engine-data.json") &&
-                    entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectAction\""))) {
+                    (entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectAction\"") ||
+                     entry.getValue().contains("com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule\"")))) {
                 continue;
             }
 

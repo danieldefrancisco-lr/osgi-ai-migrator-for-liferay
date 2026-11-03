@@ -81,6 +81,12 @@ public class CoreCharacterizationTest {
         run("legacy-tasks", "standalone", "legacy-tasks", null, true, "default");
     }
 
+    /** Custom logic in a ModelListener and a LocalServiceImpl, ported to native actions and a Spring Boot microservice. */
+    @Test
+    public void loanService() throws Exception {
+        run("loan-service", "gradle-workspace", "modules/loans/loan-service", null, true, "loan-service");
+    }
+
     private void run(String caseName, String fixture, String modulePath, String selectedFolder, boolean generateBackend,
                      String responses) throws Exception {
         Path tmp = Files.createTempDirectory("oam-").toRealPath();

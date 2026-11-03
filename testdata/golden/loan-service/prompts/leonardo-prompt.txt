@@ -1,0 +1,180 @@
+Analyze the following legacy OSGi module extract and produce a comprehensive modernization blueprint.
+USER PREFERENCE: The user requested to ALSO generate Batch Client Extensions (Liferay Objects) for any backend entities used/referenced by this module (e.g. Loan). Generate the Object Definition batch files and client-extension.yaml so that the Custom Element has an active backend API (/o/c/[slug]).
+
+Determine:
+1. Liferay Object definitions (ignoring audit fields like companyId, userId, createDate), ONLY if backend objects are requested.
+2. Required Batch Client Extension structure, ONLY if backend objects are requested.
+3. Frontend UI components (React JavaScript Custom Elements or Page Fragments), if portlets exist.
+4. Model Listeners / Service Wrappers / custom LocalServiceImpl logic mapping (Native Object Actions vs a Spring Boot objectAction client extension),
+   naming for each action: the object, the trigger, the executor, and the legacy class and method it replaces.
+5. API CONTRACT (ALWAYS include it, even if backend objects are not generated): a section titled '## API CONTRACT' listing,
+   for each Liferay Object: its name (PascalCase, e.g. DevconRegistration), its externalReferenceCode, and its REST endpoint
+   '/o/c/' + the lowercase plural of the name with only letters and digits (e.g. '/o/c/devconregistrations');
+   for each Picklist: its externalReferenceCode and its entries URL
+   '/o/headless-admin-list-type/v1.0/list-type-definitions/by-external-reference-code/[ERC]/list-type-entries'.
+   for each Object Action: its name, externalReferenceCode, trigger and executor; for each Notification Template: its externalReferenceCode;
+   for each microservice: its client extension id and port.
+   The backend and frontend coders work in parallel and never see each other's files: this contract is the ONLY way they agree on names, codes and URLs.
+
+FORMAT: do NOT use Markdown tables anywhere in the blueprint; use headings and bullet lists (e.g. '- `title` (String, Text, required)'). Never draw lines of dashes.
+Describe the design in prose and tables: NEVER write file contents (JSON, YAML, Java, JavaScript) in the blueprint; the coders write the files from the playbook templates.
+Legacy columns with a reserved name (status, id, companyId, groupId, userId, userName, createDate, modifiedDate, uuid, externalReferenceCode) get a new field name prefixed with the entity (e.g. 'status' -> 'bookStatus'); list the rename in the API CONTRACT.
+
+### Legacy Module Analysis:
+Module Name: loan-service
+Source Liferay Platform Version: portal-7.3-ga1
+Entities Detected: Loan
+Portlets Detected: 
+Listeners Detected: LoanModelListener.java
+Schedulers Detected: 
+Notifications Detected: 
+
+CUSTOM LOGIC TO PORT (one line per method, with the Object Action trigger it maps to; the code is in the files below):
+- LoanModelListener.onAfterUpdate (model listener) -> onAfterUpdate, calls an external system
+- LoanModelListener.onAfterCreate (model listener) -> onAfterAdd, logging only
+- LoanLocalServiceImpl.addLoan (local service impl) -> onAfterAdd
+- LoanLocalServiceImpl.returnLoan (local service impl) -> standalone
+- LoanLocalServiceImpl.getOverdueLoans (local service impl) -> query
+Decide for EACH line (mapping playbook 3.1): 'logging only' -> entry history, no action; logic a native action can express
+(set fields, create an entry, e-mail, plain HTTP POST) -> native Object Action; anything else (calculations, conditions on several fields,
+calls to external systems with custom payloads, several steps) -> the Spring Boot objectAction microservice; 'query' methods -> REST
+filters in the frontend; validations that throw -> Object Validations. Name every decision in the blueprint.
+
+REQUIRED FIELD RENAMES (these service.xml columns use names Liferay Objects reserve; use the new names everywhere: objectFields, API CONTRACT, frontend, notification terms):
+- Loan.status -> loanStatus
+
+--- File: service.xml ---
+<?xml version="1.0"?>
+<!DOCTYPE service-builder PUBLIC "-//Liferay//DTD Service Builder 7.4.0//EN" "http://www.liferay.com/dtd/liferay-service-builder_7_4_0.dtd">
+
+<service-builder dependency-injector="ds" package-path="com.acme.loans">
+	<namespace>Loans</namespace>
+	<entity local-service="true" name="Loan" remote-service="true" uuid="true">
+		<column name="loanId" primary="true" type="long" />
+		<column name="companyId" type="long" />
+		<column name="bookTitle" type="String" />
+		<column name="borrowerEmail" type="String" />
+		<column name="loanDate" type="Date" />
+		<column name="dueDate" type="Date" />
+		<column name="returnDate" type="Date" />
+		<column name="lateFee" type="double" />
+		<column name="status" type="String" />
+	</entity>
+</service-builder>
+
+
+--- File: java:listener:LoanModelListener.java ---
+package com.acme.loans.model.listener;
+
+import com.acme.loans.model.Loan;
+import com.liferay.portal.kernel.exception.ModelListenerException;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.model.BaseModelListener;
+import com.liferay.portal.kernel.model.ModelListener;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import org.osgi.service.component.annotations.Component;
+
+@Component(service = ModelListener.class)
+public class LoanModelListener extends BaseModelListener<Loan> {
+
+	/** When a book comes back, tell the inventory system so the copy is available again. */
+	@Override
+	public void onAfterUpdate(Loan originalLoan, Loan loan) throws ModelListenerException {
+		if (!"returned".equals(loan.getStatus()) || "returned".equals(originalLoan.getStatus())) {
+			return;
+		}
+
+		String json = "{\"title\": \"" + loan.getBookTitle() + "\", \"lateFee\": " + loan.getLateFee() + "}";
+
+		try {
+			HttpRequest request = HttpRequest.newBuilder(URI.create("https://inventory.acme.com/api/returns"))
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(json))
+				.build();
+
+			HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+			if (response.statusCode() >= 400) {
+				_log.error("Inventory rejected return of " + loan.getBookTitle() + ": " + response.body());
+			}
+		}
+		catch (Exception e) {
+			throw new ModelListenerException(e);
+		}
+	}
+
+	@Override
+	public void onAfterCreate(Loan loan) throws ModelListenerException {
+		_log.info("Loan created for " + loan.getBorrowerEmail());
+	}
+
+	private static final Log _log = LogFactoryUtil.getLog(LoanModelListener.class);
+
+}
+
+
+--- File: java:localservice:LoanLocalServiceImpl.java ---
+package com.acme.loans.service.impl;
+
+import com.acme.loans.exception.LoanBorrowerEmailException;
+import com.acme.loans.model.Loan;
+import com.acme.loans.service.base.LoanLocalServiceBaseImpl;
+import com.liferay.portal.aop.AopService;
+import com.liferay.portal.kernel.util.Validator;
+
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.osgi.service.component.annotations.Component;
+
+@Component(property = "model.class.name=com.acme.loans.model.Loan", service = AopService.class)
+public class LoanLocalServiceImpl extends LoanLocalServiceBaseImpl {
+
+	/** A loan lasts 14 days; the borrower must have a valid e-mail address. */
+	public Loan addLoan(String bookTitle, String borrowerEmail) throws Exception {
+		if (!Validator.isEmailAddress(borrowerEmail)) {
+			throw new LoanBorrowerEmailException("Invalid e-mail: " + borrowerEmail);
+		}
+
+		Loan loan = loanPersistence.create(counterLocalService.increment());
+
+		Date now = new Date();
+
+		loan.setBookTitle(bookTitle);
+		loan.setBorrowerEmail(borrowerEmail);
+		loan.setLoanDate(now);
+		loan.setDueDate(new Date(now.getTime() + TimeUnit.DAYS.toMillis(14)));
+		loan.setStatus("onLoan");
+
+		return loanPersistence.update(loan);
+	}
+
+	/** Late returns pay 0.50 per day after the due date. */
+	public Loan returnLoan(long loanId) throws Exception {
+		Loan loan = loanPersistence.findByPrimaryKey(loanId);
+
+		Date now = new Date();
+
+		long daysLate = TimeUnit.MILLISECONDS.toDays(now.getTime() - loan.getDueDate().getTime());
+
+		loan.setReturnDate(now);
+		loan.setLateFee(daysLate > 0 ? daysLate * 0.5 : 0);
+		loan.setStatus("returned");
+
+		return loanPersistence.update(loan);
+	}
+
+	public List<Loan> getOverdueLoans(Date date) {
+		return loanFinder.findByDueDateBeforeAndStatus(date, "onLoan");
+	}
+
+}
+
+
