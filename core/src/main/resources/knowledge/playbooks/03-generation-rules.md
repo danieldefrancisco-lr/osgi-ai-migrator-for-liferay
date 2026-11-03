@@ -17,8 +17,10 @@ client-extensions/[entity-slug]-object/
 ├── client-extension.yaml
 └── batch/
     ├── 01-00-folder-definition.batch-engine-data.json
-    └── 01-01-[entity-name]-definition.batch-engine-data.json
+    ├── 01-01-[entity-slug]-picklists.batch-engine-data.json      (only with picklists)
+    └── 01-02-[entity-slug]-definition.batch-engine-data.json
 ```
+*Naming convention for externalReferenceCodes (use it everywhere):* object `OBJ_[ENTITY]` (e.g. `OBJ_LOAN`), field `FIELD_[ENTITY]_[FIELDNAME]` (`FIELD_LOAN_DUEDATE`), action `ACTION_[ENTITY]_[ACTIONNAME]` (`ACTION_LOAN_RETURNLOAN`), picklist `PL_[NAME]`, notification template `TEMPLATE_[ENTITY]_[NAME]`. The definition stays `01-02` even without picklists.
 *Note: Alphabetic ordering (`01-00-`, `01-01-`, `02-00-`) is required because the Liferay Batch Engine processes files alphabetically.*
 
 ### 2.2 `client-extension.yaml` Specification
@@ -164,7 +166,7 @@ assemble:
    - **`DateTime` (with time/timestamp)**: MUST include `"objectFieldSettings": [{"name": "timeStorage", "value": "convertToUTC"}]`.
    - **`Date` (pure date without time)**: `"objectFieldSettings": []`. **NEVER** add `timeStorage` to a `Date` field (throws `ObjectFieldSettingNameException: The settings timeStorage are not allowed for object field [name]`).
    - **`Text` fields**: **NEVER** add `"options"` setting to `Text` fields (throws `ObjectFieldSettingNameException: The settings options are not allowed for object field [name]`).
-5. **No `objectValidations` inside `ObjectDefinition`**: `ObjectDefinition` does NOT have an `objectValidations` field (throws `NoSuchFieldException: [objectValidations]`). Validations belong in separate `01-02-[slug]-validations.batch-engine-data.json` using `com.liferay.object.admin.rest.dto.v1_0.ObjectValidationRule`.
+5. **No `objectValidations` inside `ObjectDefinition`**: `ObjectDefinition` does NOT have an `objectValidations` field (throws `NoSuchFieldException: [objectValidations]`). Object Validations are not deployed by batch (the migrator discards `ObjectValidationRule` files): list each one in `MIGRATION.md` (field, rule, error message, legacy method) so the administrator creates it in *Objects → [Object] → Validations*.
 6. **No `localized` property inside `ObjectField`**: Localization is an object-level toggle (`"enableLocalization": true/false`). Individual fields must NOT contain `"localized": true/false`!
 7. **No `indexedLanguageId` on Non-Strings**: Only `String` and `Clob` fields may have `indexedLanguageId`.
 8. **No `permissions` block**: Permissions cannot be set inside the batch object definition schema.
@@ -550,7 +552,7 @@ Depending on Leonardo's classification, Michelangelo either declares **Native Ob
 
 ### 4.1 Rules That Apply to Every Object Action
 1. **Actions are nested in the Object Definition**: declare them in the `objectActions` array of the `ObjectDefinition` item. NEVER generate a standalone batch file with `className` `com.liferay.object.admin.rest.dto.v1_0.ObjectAction`.
-2. **Every object field and every object action has its own fixed `externalReferenceCode`** (e.g. `[OBJECT_ERC]_[FIELD_NAME_UPPER]`, `[OBJECT_ERC]_ACTION_[ACTION_NAME_UPPER]`). Liferay matches fields and actions by ERC when the batch is deployed again: without one it generates a random ERC, and the next deployment fails with `ObjectFieldNameException$MustNotBeDuplicate`.
+2. **Every object field and every object action has its own fixed `externalReferenceCode`** (convention of 2.1: `FIELD_[ENTITY]_[FIELDNAME]`, `ACTION_[ENTITY]_[ACTIONNAME]`). Liferay matches fields and actions by ERC when the batch is deployed again: without one it generates a random ERC, and the next deployment fails with `ObjectFieldNameException$MustNotBeDuplicate`.
 3. **`name` is camelCase with only letters and digits** (`notifyUserOnLoanCreation`); the readable text goes in `label`. A `standalone` action (a user runs it from the entry's menu) also needs `"errorMessage": {"en_US": "..."}`, shown when it fails; without it the import fails with `ObjectActionErrorMessageException` (validated).
 4. **The trigger and the name are fixed once the object is published**: on an approved object, Liferay silently ignores changes to `objectActionTriggerKey` and `name` of an existing action. To change them, create a new action (new `name` and new `externalReferenceCode`) and tell the administrator in `MIGRATION.md` to delete the old one.
 5. **Triggers**: `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, or `standalone` (run by a user from the entry's menu). Actions run **after** the entry is saved, so a legacy `onBeforeCreate` / `onBeforeUpdate` cannot be ported as is:
@@ -581,7 +583,7 @@ Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-ent
         {
           "DBType": "String",
           "businessType": "Text",
-          "externalReferenceCode": "[OBJECT_ERC]_TICKET_STATUS",
+          "externalReferenceCode": "FIELD_[ENTITY]_TICKETSTATUS",
           "indexed": false,
           "indexedAsKeyword": false,
           "label": {"en_US": "Ticket Status"},
@@ -595,7 +597,7 @@ Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-ent
           "active": true,
           "conditionExpression": "",
           "description": "Replaces [LegacyClass].onAfterCreate e-mail",
-          "externalReferenceCode": "[OBJECT_ERC]_ACTION_SEND_CONFIRMATION_EMAIL",
+          "externalReferenceCode": "ACTION_[ENTITY]_SENDCONFIRMATIONEMAIL",
           "label": {"en_US": "Send Confirmation Email"},
           "name": "sendConfirmationEmail",
           "objectActionExecutorKey": "notification",
@@ -609,7 +611,7 @@ Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-ent
           "active": true,
           "conditionExpression": "",
           "description": "Replaces the status set in [LegacyClass].onAfterCreate",
-          "externalReferenceCode": "[OBJECT_ERC]_ACTION_MARK_AS_RECEIVED",
+          "externalReferenceCode": "ACTION_[ENTITY]_MARKASRECEIVED",
           "label": {"en_US": "Mark as Received"},
           "name": "markAsReceived",
           "objectActionExecutorKey": "update-object-entry",
@@ -625,7 +627,7 @@ Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-ent
           "active": true,
           "conditionExpression": "",
           "description": "Replaces the HTTP call in [LegacyClass].onAfterUpdate",
-          "externalReferenceCode": "[OBJECT_ERC]_ACTION_SYNC_WEBHOOK",
+          "externalReferenceCode": "ACTION_[ENTITY]_SYNCWEBHOOK",
           "label": {"en_US": "Sync Webhook"},
           "name": "syncWebhook",
           "objectActionExecutorKey": "webhook",
@@ -686,7 +688,7 @@ A legacy e-mail (`MailServiceUtil`, `MailMessage`, `SubscriptionSender`) becomes
 }
 ```
 *Term syntax:* `[%` + the object's `name` in UPPERCASE + `_` + the field's `name` in UPPERCASE + `%]`, with no underscores added inside either name (object `OamSpikeTicket`, field `requesterEmail` → `[%OAMSPIKETICKET_REQUESTEREMAIL%]`; object `Loan`, field `dueDate` → `[%LOAN_DUEDATE%]`). Port the legacy subject and body text into these terms.
-- Use the object's `name`, **never its `externalReferenceCode`** (`C_LOAN` → wrong `[%C_LOAN_DUEDATE%]`, right `[%LOAN_DUEDATE%]`).
+- Use the object's `name`, **never its `externalReferenceCode`** (`OBJ_LOAN` → wrong `[%OBJ_LOAN_DUEDATE%]`, right `[%LOAN_DUEDATE%]`).
 - Use only fields of the object itself: fields of related objects (the book's title in a Loan template) are not terms. If the legacy e-mail needs them, add a field to the object or move the e-mail to a microservice action, and say so in `MIGRATION.md`.
 - The recipient `to` is an e-mail field of the object (e.g. `[%LOAN_BORROWEREMAIL%]`) or a fixed address.
 
@@ -904,7 +906,7 @@ public class [Name]ObjectActionRestController extends BaseRestController {
 
 }
 ```
-Read fields with `values.path("[fieldName]").asText()`. To update the entry (or other entries), call the object's REST API with Spring's `RestClient` and the JWT Liferay sent, with the `c_[objectname].everything` scope of 4.4.2:
+Read fields with `values.path("[fieldName]").asText()`; the id to PATCH is `objectEntry.objectEntryId` (same as `classPK`). Calls to external systems also use `RestClient`, with their URLs (and any credentials, as environment variables) in `application-default.properties`, never in the code. To update the entry (or other entries), call the object's REST API with Spring's `RestClient` and the JWT Liferay sent, with the `c_[objectname].everything` scope of 4.4.2:
 ```java
 	@Value("${com.liferay.lxc.dxp.mainDomain}")
 	private String _lxcDXPMainDomain;
@@ -931,7 +933,7 @@ Liferay POSTs this JSON to `resourcePath` with a JWT (`Authorization: Bearer`) t
 
 | Key | Content | Legacy equivalent |
 |---|---|---|
-| `objectActionTriggerKey` | `onAfterAdd`, `onAfterUpdate`, `onAfterDelete` | which `ModelListener` method fired; one endpoint can serve several triggers |
+| `objectActionTriggerKey` | `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, `standalone` (validated: a standalone action sends the same `objectEntry` and `objectEntryDTO[ObjectName]`) | which `ModelListener` method fired; one endpoint can serve several triggers |
 | `objectEntry.values` | the entry's fields by name (`{"orderNumber": "0001", ...}`) | `model.getXxx()` |
 | `objectEntry.objectEntryId`, `objectEntry.externalReferenceCode` | id and ERC of the entry | primary key |
 | `originalObjectEntry.values` | the fields **before** the update (only `onAfterUpdate`) | `originalModel` in `onAfterUpdate(originalModel, model)` |

@@ -18,6 +18,8 @@ into Liferay Objects and Client Extensions.
   Liferay runs (local bundle, Docker, remote server, SaaS/PaaS) in `MIGRATION.md`.
 - **Raphael's checks** for the mistakes Liferay rejects at deployment (reserved field names, missing external
   reference codes, invalid action parameters and notification terms, microservice ports and OAuth scopes...).
+- **Agent skill** for Claude Code, Gemini CLI, Codex and other coding agents, built from the same playbooks
+  ([Agent skill](#agent-skill-claude-code-gemini-cli-codex-and-other-coding-agents)).
 - **Gemini authentication**: gcloud ADC, Vertex AI service account, or Google AI Studio API key
   (stored in Eclipse Secure Storage).
 
@@ -119,19 +121,105 @@ As in Eclipse, the default authentication is gcloud ADC (`gcloud auth login`); u
 `geminiAuthType=AI_STUDIO` (or `--auth AI_STUDIO`) for an API key. `java -jar osgi-ai-migrator-cli.jar config`
 shows the settings in effect and where each one comes from.
 
-## Agent skill (Claude Code, Gemini CLI and other coding agents)
+## Agent skill (Claude Code, Gemini CLI, Codex and other coding agents)
 
-Each GitHub Release has `osgi-ai-migrator-skill-X.zip`: an [Agent Skill](skill/src/SKILL.md) that lets a coding
-agent do the migration itself, instead of Gemini inside the IDE. The agent analyzes the module with the bundled CLI,
-plans and writes the client extensions from the same playbooks the plugins use, and runs `verify` until it is clean;
-it can then build and deploy them and read Liferay's log. It needs Java 17 or later.
+The migration is also packaged as an [Agent Skill](skill/src/SKILL.md), so a coding agent can do it itself instead of
+Gemini inside the IDE. The agent analyzes the module with the bundled CLI, writes a plan, generates the client
+extensions from the same playbooks the plugins use, and runs `verify` until it is clean; on request it also builds
+and deploys them and reads Liferay's log to fix what fails. Because it reads the whole module and checks its own
+work, it usually gets further than the one-shot Gemini pipeline.
 
-Unzip it where your agent loads skills, for example `~/.claude/skills/` (the zip holds the `osgi-ai-migrator/`
-folder). For agents that read `AGENTS.md` or `GEMINI.md` instead, point them at that folder.
+### Requirements
 
-The skill is built from `skill/`, which only holds the instructions: the playbooks and the CLI jar are copied from
-`core` and `cli` by the build (`skill/target/osgi-ai-migrator-skill.zip`), so the skill and the plugins always share
-the same version and rules.
+- Java 17 or later on the machine where the agent runs (`java -version`). If `java` on the `PATH` is older, tell the
+  agent the full path of a newer one (e.g. `C:\Program Files\Java\jdk-21\bin\java.exe`).
+- The legacy module and a Liferay workspace (the folder with `settings.gradle` and `client-extensions/`). To build and
+  deploy, also Blade or the workspace's Gradle wrapper, and a Liferay to deploy to.
+- An agent that can read files and run shell commands. Chat apps without access to your disk (e.g. claude.ai) cannot
+  use it.
+
+### Get the skill
+
+Download `osgi-ai-migrator-skill-X.zip` from the [GitHub Releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases)
+(from 3.4.0 on), or build it: `./mvnw install` writes `skill/target/osgi-ai-migrator-skill.zip`. The zip holds one
+folder, `osgi-ai-migrator/`:
+
+```
+osgi-ai-migrator/
+├── SKILL.md                  instructions (agent-neutral)
+├── AGENTS.md, GEMINI.md      short pointers to SKILL.md
+├── references/knowledge/     playbooks, blueprints and schemas of this version
+└── scripts/osgi-ai-migrator-cli.jar
+```
+
+### Install in Claude Code
+
+Unzip it into your personal skills folder, so the skill is available in every project:
+
+```bash
+mkdir -p ~/.claude/skills && unzip osgi-ai-migrator-skill-X.zip -d ~/.claude/skills
+```
+
+On Windows (PowerShell):
+
+```powershell
+Expand-Archive osgi-ai-migrator-skill-X.zip -DestinationPath "$env:USERPROFILE\.claude\skills"
+```
+
+To share it with a team through a repository instead, unzip it into the Liferay workspace's `.claude/skills/` and
+commit it. Start a new Claude Code session afterwards: skills are loaded when a session starts. The folder must end
+up as `.../skills/osgi-ai-migrator/SKILL.md`.
+
+### Install in Gemini CLI, Codex and other agents
+
+These agents read project instructions from `GEMINI.md` or `AGENTS.md`. Unzip the skill somewhere stable (for
+example `~/agent-skills/osgi-ai-migrator/`), then add this to the `GEMINI.md` or `AGENTS.md` at the root of your
+Liferay workspace (create it if needed), with your path:
+
+```markdown
+## Migrating legacy Liferay OSGi modules
+To migrate an OSGi module to Liferay Objects and Client Extensions, read and follow
+~/agent-skills/osgi-ai-migrator/SKILL.md. Paths in it (scripts/, references/) are relative to that folder.
+```
+
+If your agent supports Agent Skills folders natively, you can unzip it there instead, as for Claude Code.
+
+### Use it
+
+Open the agent in the Liferay workspace and ask for the migration, naming the module:
+
+```
+Migrate modules/loans/loan-service to Liferay Objects and Client Extensions.
+```
+
+In Claude Code the skill is picked up from that request, or you can call it explicitly with `/osgi-ai-migrator`.
+The agent then:
+
+1. Runs `analyze` on the module and reads its sources.
+2. Writes the plan to `docs/migrations/<module>-plan.md` (objects, field renames, a decision for every model
+   listener and service method, actions, microservice) and asks you to approve it. Review it before saying yes.
+3. Generates the client extensions under `client-extensions/`, with a `MIGRATION.md` in each one.
+4. Runs `verify` until it reports no problems.
+5. If you ask, builds and deploys them (microservice first, then the batch, then the frontend) and checks the log.
+
+Things to tell it when they apply: how your Liferay runs (local bundle, Docker, remote, SaaS), so the microservice
+address in `client-extension.yaml` is set for it (see the table in each `MIGRATION.md`); where the `deploy/` folder
+is; and the path of Java 17+ if the default `java` is older. Migrate one module per conversation.
+
+You can also run the same checks on any workspace yourself: `java -jar scripts/osgi-ai-migrator-cli.jar verify
+<workspace> --only <client-extension>`.
+
+### Update or remove
+
+Replace the `osgi-ai-migrator/` folder with the one from a newer zip (the skill, its playbooks and its CLI always
+come together), or delete it to uninstall. For Gemini CLI and other agents, also remove the lines you added to
+`GEMINI.md` / `AGENTS.md`.
+
+### How it is built
+
+`skill/` only holds the instructions (`SKILL.md`, `AGENTS.md`, `GEMINI.md`). The build copies the knowledge base from
+the core jar and the CLI jar into the zip, so the skill and the IDE plugins always share the same version and rules,
+and every tagged release attaches the zip.
 
 ## Build
 

@@ -35,7 +35,10 @@ Read `references/knowledge/playbooks/02-mapping-rules.md` and, when they apply, 
 - a decision for **every** line of `customLogic`: logging only → entry history; fixed field values, e-mail or a plain
   HTTP POST → native Object Action; calculations, conditions on previous values, external calls with custom payloads
   or several steps → the module's single Spring Boot microservice; `query` methods → REST filters; validations that
-  throw → Object Validations (created by hand, listed in `MIGRATION.md`);
+  throw → Object Validations (created by hand, listed in `MIGRATION.md`). When one method mixes fixed values and
+  computed ones, keep it whole in the microservice (one action per trigger), so updates do not race;
+- the legacy `ModelListenerException` rollbacks you cannot keep (actions run after the save), noted for `MIGRATION.md`;
+- data: plan an export of the legacy tables (data migration blueprint) only if the user asks for it; never invent entries;
 - each Object Action (name in camelCase, `externalReferenceCode`, trigger, executor) and Notification Template;
 - the client extensions to create and, for the microservice, its id and port (58081).
 
@@ -45,8 +48,9 @@ Read `references/knowledge/playbooks/03-generation-rules.md` and copy its templa
 custom elements (3), Object Actions, notification templates and the Spring Boot microservice (4), themes (8 and 9).
 The rules Liferay enforces, all found in real deployments:
 
-- Every object field and every action has its own fixed `externalReferenceCode`, or redeploying fails with
-  `Duplicate name`. Actions live in the `objectActions` array of the object definition, never in their own file.
+- Every object field and every action has its own fixed `externalReferenceCode` (naming convention in playbook
+  section 2.1: `OBJ_LOAN`, `FIELD_LOAN_DUEDATE`, `ACTION_LOAN_RETURNLOAN`), or redeploying fails with `Duplicate name`.
+  Batch files: `01-00` folder, `01-01` picklists (if any), `01-02` definition. Actions live in the `objectActions` array of the object definition, never in their own file.
 - `update-object-entry` needs `objectDefinitionExternalReferenceCode` and only fixed values; a `standalone` action needs
   `errorMessage`; triggers are `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, `standalone` (no `onBefore*`);
   `conditionExpression` cannot see previous values.
