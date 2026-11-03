@@ -19,6 +19,7 @@
     <modules>
         <module>core</module>
         <module>cli</module>
+        <module>skill</module>
         <module>releng/io.github.danieldefrancisco_lr.migrator.target</module>
         <module>bundles/io.github.danieldefrancisco_lr.migrator</module>
         <module>bundles/io.github.danieldefrancisco_lr.migrator.tests</module>

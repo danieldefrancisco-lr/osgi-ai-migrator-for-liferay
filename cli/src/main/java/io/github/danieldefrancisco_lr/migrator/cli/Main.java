@@ -300,6 +300,14 @@ public class Main {
         m.put("listeners", a.detectedListeners);
         m.put("schedulers", a.detectedSchedulers);
         m.put("notifications", a.detectedNotifications);
+        m.put("customLogic", a.detectedCustomLogic);
+        List<String> renames = new ArrayList<>();
+        for (String line : AgentOrchestrator.reservedColumnRenames(a).split("\n")) {
+            if (!line.isBlank()) {
+                renames.add(line.substring(2));
+            }
+        }
+        m.put("fieldRenames", renames);
         m.put("report", report);
         return m;
     }

@@ -299,7 +299,7 @@ public class AgentOrchestrator {
      * Gemini ignores the generic rule when the legacy column is called 'status', so the rename is spelled out per column.
      * Audit columns (companyId, userId, createDate...) are dropped by the playbook instead, so only the others are listed.
      */
-    static String reservedColumnRenames(ModuleAnalysisResult analysis) {
+    public static String reservedColumnRenames(ModuleAnalysisResult analysis) {
         java.util.Set<String> dropped = java.util.Set.of("companyId", "groupId", "userId", "userName", "createDate", "modifiedDate", "uuid");
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, String> file : analysis.rawSourceExtracts.entrySet()) {

@@ -150,6 +150,12 @@ jobs:
           name: cli
           path: cli/target/osgi-ai-migrator-cli.jar
 
+      - name: Upload agent skill
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill
+          path: skill/target/osgi-ai-migrator-skill.zip
+
       - name: Add landing page
         run: cp releng/io.github.danieldefrancisco_lr.migrator.updatesite/index.html "$UPDATE_SITE/"
 
@@ -199,6 +205,7 @@ jobs:
           rm -f index.html
           zip -qr "../../osgi-ai-migrator-eclipse-update-site-${GITHUB_REF_NAME#v}.zip" .
           cp ../cli/osgi-ai-migrator-cli.jar "../../osgi-ai-migrator-cli-${GITHUB_REF_NAME#v}.jar"
+          cp ../skill/osgi-ai-migrator-skill.zip "../../osgi-ai-migrator-skill-${GITHUB_REF_NAME#v}.zip"
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -207,5 +214,6 @@ jobs:
           files: |
             osgi-ai-migrator-eclipse-update-site-*.zip
             osgi-ai-migrator-cli-*.jar
+            osgi-ai-migrator-skill-*.zip
             artifacts/intellij-plugin/*.zip
             artifacts/vscode-extension/*.vsix

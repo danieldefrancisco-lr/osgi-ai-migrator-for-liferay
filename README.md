@@ -119,6 +119,20 @@ As in Eclipse, the default authentication is gcloud ADC (`gcloud auth login`); u
 `geminiAuthType=AI_STUDIO` (or `--auth AI_STUDIO`) for an API key. `java -jar osgi-ai-migrator-cli.jar config`
 shows the settings in effect and where each one comes from.
 
+## Agent skill (Claude Code, Gemini CLI and other coding agents)
+
+Each GitHub Release has `osgi-ai-migrator-skill-X.zip`: an [Agent Skill](skill/src/SKILL.md) that lets a coding
+agent do the migration itself, instead of Gemini inside the IDE. The agent analyzes the module with the bundled CLI,
+plans and writes the client extensions from the same playbooks the plugins use, and runs `verify` until it is clean;
+it can then build and deploy them and read Liferay's log. It needs Java 17 or later.
+
+Unzip it where your agent loads skills, for example `~/.claude/skills/` (the zip holds the `osgi-ai-migrator/`
+folder). For agents that read `AGENTS.md` or `GEMINI.md` instead, point them at that folder.
+
+The skill is built from `skill/`, which only holds the instructions: the playbooks and the CLI jar are copied from
+`core` and `cli` by the build (`skill/target/osgi-ai-migrator-skill.zip`), so the skill and the plugins always share
+the same version and rules.
+
 ## Build
 
 Requires JDK 17+. Maven is downloaded by the wrapper (pinned to 3.9.11).
@@ -183,6 +197,7 @@ releng/io.github.danieldefrancisco_lr.migrator.updatesite  p2 update site (categ
 cli                                                   Command-line interface (runnable jar)
 intellij                                              IntelliJ Platform plugin (Gradle)
 vscode                                                VS Code extension (TypeScript), runs the CLI
+skill                                                 Agent skill: instructions; the build adds the playbooks and the CLI
 testdata                                              Test fixtures, canned Gemini answers and goldens
 ```
 
