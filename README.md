@@ -11,7 +11,13 @@ into Liferay Objects and Client Extensions.
 
 - **Context menu**: right-click a module → **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...**
 - **4-agent migration wizard**: Donatello (analyze), Leonardo (architect), Michelangelo (generate), Raphael (verify).
-- **Analyzer** for `service.xml`, JSPs, portlet classes, model listeners, schedulers and theme templates.
+- **Analyzer** for `service.xml`, JSPs, portlet classes, model listeners, schedulers and theme templates. It lists every
+  method of Model Listeners, Service Wrappers and custom `*LocalServiceImpl` classes with the Object Action trigger it maps to.
+- **Object Actions**: native actions (notification, webhook, update entry) and notification templates in the Batch
+  Client Extension, and a Spring Boot `objectAction` client extension for custom logic, with the setup for each way
+  Liferay runs (local bundle, Docker, remote server, SaaS/PaaS) in `MIGRATION.md`.
+- **Raphael's checks** for the mistakes Liferay rejects at deployment (reserved field names, missing external
+  reference codes, invalid action parameters and notification terms, microservice ports and OAuth scopes...).
 - **Gemini authentication**: gcloud ADC, Vertex AI service account, or Google AI Studio API key
   (stored in Eclipse Secure Storage).
 
@@ -145,10 +151,10 @@ JetBrains Marketplace, the VS Code Marketplace and Open VSX when the repository 
 `VSCE_PAT` and `OVSX_PAT` are set (each store is skipped otherwise):
 
 1. Set the new version, for example
-   `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=3.3.0-SNAPSHOT`
-   (and `npm version 3.3.0 --no-git-tag-version` in `vscode/` to keep local builds in step).
+   `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=3.4.0-SNAPSHOT`
+   (and `npm version 3.4.0 --no-git-tag-version` in `vscode/` to keep local builds in step).
 2. Commit and push to `main`, and check the build passes.
-3. Tag and push: `git tag v3.3.0 && git push origin v3.3.0`
+3. Tag and push: `git tag v3.4.0 && git push origin v3.4.0`
 
 ## Project layout
 

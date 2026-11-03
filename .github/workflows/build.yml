@@ -86,9 +86,11 @@ jobs:
           npm test 2>&1 | tee -a ../build.log
           npm run package 2>&1 | tee -a ../build.log
 
-      # Marketplace publishing on release tags; each store is skipped until its token secret exists
+      # Marketplace publishing on release tags; each store is skipped until its token secret exists, and a store
+      # that rejects the upload (e.g. a plugin still in review) is reported without blocking the GitHub Release
       - name: Publish to JetBrains Marketplace
         if: env.RELEASE == 'true'
+        continue-on-error: true
         working-directory: intellij
         env:
           JETBRAINS_TOKEN: ${{ secrets.JETBRAINS_TOKEN }}
@@ -98,6 +100,7 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         if: env.RELEASE == 'true'
+        continue-on-error: true
         working-directory: vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -107,6 +110,7 @@ jobs:
 
       - name: Publish to Open VSX
         if: env.RELEASE == 'true'
+        continue-on-error: true
         working-directory: vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}

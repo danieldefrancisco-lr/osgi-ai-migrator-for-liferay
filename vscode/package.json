@@ -2,7 +2,7 @@
   "name": "osgi-ai-migrator",
   "displayName": "OSGi AI Migrator for Liferay",
   "description": "AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects and Client Extensions, powered by Google Gemini.",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "publisher": "DanieldeFrancisco",
   "license": "Apache-2.0",
   "icon": "images/icon.png",
