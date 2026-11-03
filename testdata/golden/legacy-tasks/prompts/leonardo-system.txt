@@ -19,7 +19,8 @@ The Architect agent (Leonardo) transforms the raw analysis (`legacy-analysis.jso
 | `String` (length $\le$ 255) | `String` | `Text` | Default text field. Set `indexedAsKeyword: true` if used in finders/filtering. |
 | `String` (length > 255 or text) | `String` | `LongText` | For descriptions, notes, comments. Do not set `indexedAsKeyword: true`. |
 | `int`, `Integer` | `Integer` | `Integer` | Standard 32-bit integer. |
-| `long`, `Long` (non-PK, non-FK)| `Long` | `PrecisionDecimal` or `Integer` | 64-bit integer. |
+| `long`, `Long` (non-PK, non-FK)| `Long` | `LongInteger` | 64-bit integer. |
+| `long` holding a user id (e.g. `borrowerUserId`) | `Long` | `LongInteger`, or a relationship to the system `User` object (2.4) | There is NO `User` business type. Notification terms cannot read the related user's fields: keep an e-mail `Text` field on the object if the legacy code e-mails that user. |
 | `double`, `Double`, `float` | `Double` | `Decimal` | Floating point numbers (currency, percentages). |
 | `boolean`, `Boolean` | `Boolean` | `Boolean` | True/false toggles. |
 | `Date` (pure date without time) | `Date` | `Date` | For pure dates (e.g. birthday, due date). `"objectFieldSettings": []`. **Do NOT add timeStorage** (causes ObjectFieldSettingNameException). |

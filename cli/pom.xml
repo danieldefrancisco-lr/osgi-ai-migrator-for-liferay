@@ -62,6 +62,15 @@
                 </configuration>
             </plugin>
             <plugin>
+                <!-- Rebuild the jar on every build: otherwise a build without 'clean' finds it up to date and shades
+                     the previous shaded jar again, keeping the old core classes -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <forceCreation>true</forceCreation>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.6.0</version>

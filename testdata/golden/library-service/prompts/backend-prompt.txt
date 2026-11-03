@@ -20,6 +20,9 @@ Listeners Detected: BookModelListener.java
 Schedulers Detected: OverdueBooksScheduler.java
 Notifications Detected: OverdueBooksScheduler.java
 
+REQUIRED FIELD RENAMES (these service.xml columns use names Liferay Objects reserve; use the new names everywhere: objectFields, API CONTRACT, frontend, notification terms):
+- Book.status -> bookStatus
+
 --- File: service.xml ---
 <?xml version="1.0"?>
 <!DOCTYPE service-builder PUBLIC "-//Liferay//DTD Service Builder 7.3.0//EN" "http://www.liferay.com/dtd/liferay-service-builder_7_3_0.dtd">

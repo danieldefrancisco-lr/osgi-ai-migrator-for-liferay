@@ -7,11 +7,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.regex.Pattern;
 
 /**
  * Communicates with Gemini via Google Cloud ADC (gcloud), Vertex AI (Service Account), or Google AI Studio (API Key).
  */
 public class GeminiClient implements LlmClient {
+
+    private static final Pattern MAX_TOKENS = Pattern.compile("\"finishReason\"\\s*:\\s*\"MAX_TOKENS\"");
 
     private final GeminiSettings settings;
     private final HttpClient httpClient;
@@ -133,6 +136,13 @@ public class GeminiClient implements LlmClient {
 
         if (response.statusCode() != 200) {
             throw new RuntimeException("Gemini Gateway Error (HTTP " + response.statusCode() + "): " + response.body());
+        }
+
+        // A repetition loop (e.g. a table separator row with a million dashes) runs until the output limit and
+        // leaves a cut answer; fail instead of building the migration on it
+        if (MAX_TOKENS.matcher(response.body()).find()) {
+            throw new RuntimeException("Gemini stopped at its output token limit (finishReason MAX_TOKENS), so the answer is incomplete. " +
+                "This is usually a repetition loop in the model's output; run the migration again.");
         }
 
         return extractTextFromGeminiResponse(response.body());

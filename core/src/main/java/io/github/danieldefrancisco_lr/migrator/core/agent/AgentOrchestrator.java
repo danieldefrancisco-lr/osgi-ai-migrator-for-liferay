@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Coordinates Donatello, Leonardo, Michelangelo, and Raphael to execute the migration via Gemini.
@@ -50,6 +52,11 @@ public class AgentOrchestrator {
         legacyContext.append("Listeners Detected: ").append(String.join(", ", analysis.detectedListeners)).append("\n");
         legacyContext.append("Schedulers Detected: ").append(String.join(", ", analysis.detectedSchedulers)).append("\n");
         legacyContext.append("Notifications Detected: ").append(String.join(", ", analysis.detectedNotifications)).append("\n\n");
+        String renames = reservedColumnRenames(analysis);
+        if (!renames.isEmpty()) {
+            legacyContext.append("REQUIRED FIELD RENAMES (these service.xml columns use names Liferay Objects reserve; use the new names everywhere: objectFields, API CONTRACT, frontend, notification terms):\n")
+                .append(renames).append("\n");
+        }
 
         for (Map.Entry<String, String> entry : analysis.rawSourceExtracts.entrySet()) {
             legacyContext.append("--- File: ").append(entry.getKey()).append(" ---\n");
@@ -105,6 +112,9 @@ public class AgentOrchestrator {
             "   for each Object Action: its name, externalReferenceCode, trigger and executor; for each Notification Template: its externalReferenceCode;\n" +
             "   for each microservice: its client extension id and port.\n" +
             "   The backend and frontend coders work in parallel and never see each other's files: this contract is the ONLY way they agree on names, codes and URLs.\n\n" +
+            "FORMAT: do NOT use Markdown tables anywhere in the blueprint; use headings and bullet lists (e.g. '- `title` (String, Text, required)'). Never draw lines of dashes.\n" +
+            "Describe the design in prose and tables: NEVER write file contents (JSON, YAML, Java, JavaScript) in the blueprint; the coders write the files from the playbook templates.\n" +
+            "Legacy columns with a reserved name (status, id, companyId, groupId, userId, userName, createDate, modifiedDate, uuid, externalReferenceCode) get a new field name prefixed with the entity (e.g. 'status' -> 'bookStatus'); list the rename in the API CONTRACT.\n\n" +
             legacyContext.toString();
 
         String blueprint;
@@ -113,6 +123,7 @@ public class AgentOrchestrator {
         } catch (Exception e) {
             throw new RuntimeException("[Phase 1 - Leonardo Architect Blueprinting]: " + e.getMessage(), e);
         }
+        blueprint = collapseDashRuns(blueprint);
         plan.architectureBlueprint = blueprint;
 
         // 4. Invoke Michelangelo (Coder) via Parallel Workers (Strategy A)
@@ -143,7 +154,7 @@ public class AgentOrchestrator {
                 "   All field constraints (required, unique) belong directly on objectFields inside 01-02. NEVER generate a batch file with className ObjectAction or ObjectValidationRule.\n" +
                 "2. DO NOT generate package.json, React components, or frontend files in this call!\n" +
                 "3. In 01-00-folder-definition: 'name' MUST be alphanumeric with NO SPACES (e.g. 'DevconMigrationObjects').\n" +
-                "4. NEVER include reserved system field names ('status', 'id', 'companyId', 'groupId', 'userId', 'userName', 'createDate', 'modifiedDate', 'uuid') in objectFields!\n" +
+                "4. NEVER include reserved system field names ('status', 'id', 'companyId', 'groupId', 'userId', 'userName', 'createDate', 'modifiedDate', 'uuid', 'externalReferenceCode') in objectFields, even when the legacy service.xml has that column: rename it with the entity prefix (e.g. 'status' -> 'bookStatus'), as in the blueprint's API CONTRACT. Deployment fails with 'Reserved name status'!\n" +
                 "5. NEVER include 'objectLayouts' or 'objectViews' inside ObjectDefinition items! Liferay creates layouts automatically.\n" +
                 "6. NEVER add inline 'options' inside objectFieldSettings! For dropdowns/select fields, generate a Picklist in 01-01 and reference it via 'listTypeDefinitionExternalReferenceCode'!\n" +
                 "7. In Picklist listTypeEntries: 'key' MUST be alphanumeric with NO spaces, underscores, or hyphens (e.g. 'inPerson', 'M').\n" +
@@ -151,7 +162,11 @@ public class AgentOrchestrator {
                 "9. Use EXACTLY the object names and the object and picklist externalReferenceCodes from the blueprint's API CONTRACT: the frontend calls them by those names.\n" +
                 "10. EVERY objectField and EVERY objectAction MUST have its own fixed externalReferenceCode ('[OBJECT_ERC]_[FIELD_NAME_UPPER]', '[OBJECT_ERC]_ACTION_[NAME_UPPER]'). Without them the next deployment fails with 'Duplicate name'.\n" +
                 "11. Object Actions go ONLY in the 'objectActions' array of the ObjectDefinition item (playbook section 4.2). 'update-object-entry' and 'add-object-entry' MUST include 'objectDefinitionExternalReferenceCode' in their parameters. Valid triggers: onAfterAdd, onAfterUpdate, onAfterDelete, standalone (there is no onBefore* trigger).\n" +
-                "12. A microservice action uses 'objectActionExecutorKey': 'function#[logic-slug]-object-action'. In its client-extension.yaml, '.serviceAddress' is ALWAYS 'localhost:[port]' and application-default.properties points to 'localhost:8080': never hard-code host.docker.internal or another host; the other environments are documented in MIGRATION.md.\n";
+                "12. Object Action 'name' is camelCase with only letters and digits (e.g. 'notifyUserOnLoanCreation'); the readable text goes in 'label'.\n" +
+                "13. The '01-04-[entity]-actions' file repeats the COMPLETE object definition of 01-02 (all its properties and every objectField with the same externalReferenceCodes) plus 'objectActions'. Never send only the ERC and name.\n" +
+                "14. Notification Template terms are '[%' + the object's 'name' in UPPERCASE (NOT its externalReferenceCode) + '_' + the field 'name' in UPPERCASE without underscores + '%]': object 'Loan', field 'dueDate' -> '[%LOAN_DUEDATE%]'. Use only fields of that object (no fields of related objects or users, e.g. NOT '[%LOAN_BORROWERUSER_EMAILADDRESS%]'); the recipient 'to' is a Text email field of the object, e.g. '[%LOAN_BORROWEREMAIL%]' (add that field if the legacy code e-mails a user).\n" +
+                "16. 'businessType' is one of: Text, LongText, RichText, Integer, LongInteger, Decimal, PrecisionDecimal, Boolean, Date, DateTime, Picklist, MultiselectPicklist, Attachment, Relationship. There is NO 'User' business type: a user id is a LongInteger.\n" +
+                "15. A microservice action uses 'objectActionExecutorKey': 'function#[logic-slug]-object-action'. In its client-extension.yaml, '.serviceAddress' is ALWAYS 'localhost:[port]' and application-default.properties points to 'localhost:8080': never hard-code host.docker.internal or another host; the other environments are documented in MIGRATION.md.\n";
 
             String backendPrompt = "Based on Leonardo's blueprint below, generate the complete, ready-to-deploy Batch Client Extension files.\n" +
                 "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +
@@ -249,6 +264,59 @@ public class AgentOrchestrator {
         }
 
         return plan;
+    }
+
+    /** Object field names Liferay reserves; legacy columns with these names must be renamed. */
+    private static final List<String> RESERVED_FIELD_NAMES = List.of(
+        "status", "id", "companyId", "groupId", "userId", "userName", "createDate", "modifiedDate", "uuid", "externalReferenceCode");
+
+    private static final Pattern SB_ENTITY = Pattern.compile("(?s)<entity\\b[^>]*\\bname=\"(\\w+)\"(.*?)</entity>");
+    private static final Pattern SB_COLUMN = Pattern.compile("<column\\b[^>]*\\bname=\"(\\w+)\"");
+
+    /**
+     * Lists the service.xml columns whose names Liferay Objects reserve, with their new names (status -> bookStatus).
+     * Gemini ignores the generic rule when the legacy column is called 'status', so the rename is spelled out per column.
+     * Audit columns (companyId, userId, createDate...) are dropped by the playbook instead, so only the others are listed.
+     */
+    static String reservedColumnRenames(ModuleAnalysisResult analysis) {
+        java.util.Set<String> dropped = java.util.Set.of("companyId", "groupId", "userId", "userName", "createDate", "modifiedDate", "uuid");
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> file : analysis.rawSourceExtracts.entrySet()) {
+            if (!file.getKey().endsWith("service.xml")) {
+                continue;
+            }
+            Matcher entity = SB_ENTITY.matcher(file.getValue());
+            while (entity.find()) {
+                String entityName = entity.group(1);
+                Matcher column = SB_COLUMN.matcher(entity.group(2));
+                while (column.find()) {
+                    String name = column.group(1);
+                    if (RESERVED_FIELD_NAMES.contains(name) && !dropped.contains(name)) {
+                        String prefix = Character.toLowerCase(entityName.charAt(0)) + entityName.substring(1);
+                        sb.append("- ").append(entityName).append(".").append(name).append(" -> ")
+                            .append(prefix).append(Character.toUpperCase(name.charAt(0))).append(name.substring(1)).append("\n");
+                    }
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    /** A Markdown table separator row or a horizontal rule: only dashes, pipes, colons and spaces. */
+    private static final Pattern SEPARATOR_LINE = Pattern.compile("(?m)^[|: \\t]*-{4,}[-|: \\t]*$");
+
+    /**
+     * Gemini sometimes fills Markdown table separator rows with hundreds of dashes (a repetition loop).
+     * Reduces every run of dashes in such lines to '---', which renders the same.
+     */
+    public static String collapseDashRuns(String text) {
+        Matcher m = SEPARATOR_LINE.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            m.appendReplacement(sb, Matcher.quoteReplacement(m.group().replaceAll("-{4,}", "---")));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     /** Parses files delimited by '=== FILE: path ===' and '=== END FILE ===' into targetMap. */

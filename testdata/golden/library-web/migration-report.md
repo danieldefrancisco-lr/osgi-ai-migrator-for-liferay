@@ -91,8 +91,10 @@ PRE-FLIGHT CHECKS:
    [WARN] Property 'localized' detected inside ObjectField item. Liferay ObjectField does not accept 'localized'; use root 'enableLocalization' instead.
    [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('title'); deploying the batch again fails with 'Duplicate name'.
    [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('status'); deploying the batch again fails with 'Duplicate name'.
+   [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field named 'status', a reserved name ('Reserved name status'); rename it with the entity prefix, e.g. '[entity]Status'.
    [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('format'); deploying the batch again fails with 'Duplicate name'.
    [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field without externalReferenceCode ('createDate'); deploying the batch again fails with 'Duplicate name'.
+   [WARN] client-extensions/book-object/batch/01-02-book-definition.batch-engine-data.json has an object field named 'createDate', a reserved name ('Reserved name createDate'); rename it with the entity prefix, e.g. '[entity]CreateDate'.
 
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 

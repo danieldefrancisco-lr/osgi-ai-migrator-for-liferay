@@ -162,6 +162,7 @@ assemble:
    - `"createDate"`, `"modifiedDate"` (managed automatically)
    - `"externalReferenceCode"`, `"uuid"`
    Including `"status"` causes `java.lang.Exception: Reserved name status` and rejects deployment!
+   When the legacy `service.xml` has a column with one of these names (very often `status`), rename the field with the entity prefix (`status` → `bookStatus`) and use the new name everywhere (API CONTRACT, frontend, notification terms).
 4. **Field Settings Constraints**:
    - **`DateTime` (with time/timestamp)**: MUST include `"objectFieldSettings": [{"name": "timeStorage", "value": "convertToUTC"}]`.
    - **`Date` (pure date without time)**: `"objectFieldSettings": []`. **NEVER** add `timeStorage` to a `Date` field (throws `ObjectFieldSettingNameException: The settings timeStorage are not allowed for object field [name]`).
@@ -553,11 +554,12 @@ Depending on Leonardo's classification, Michelangelo either declares **Native Ob
 ### 4.1 Rules That Apply to Every Object Action
 1. **Actions are nested in the Object Definition**: declare them in the `objectActions` array of the `ObjectDefinition` item. NEVER generate a standalone batch file with `className` `com.liferay.object.admin.rest.dto.v1_0.ObjectAction`.
 2. **Every object field and every object action has its own fixed `externalReferenceCode`** (e.g. `[OBJECT_ERC]_[FIELD_NAME_UPPER]`, `[OBJECT_ERC]_ACTION_[ACTION_NAME_UPPER]`). Liferay matches fields and actions by ERC when the batch is deployed again: without one it generates a random ERC, and the next deployment fails with `ObjectFieldNameException$MustNotBeDuplicate`.
-3. **The trigger and the name are fixed once the object is published**: on an approved object, Liferay silently ignores changes to `objectActionTriggerKey` and `name` of an existing action. To change them, create a new action (new `name` and new `externalReferenceCode`) and tell the administrator in `MIGRATION.md` to delete the old one.
-4. **Triggers**: `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, or `standalone` (run by a user from the entry's menu). Actions run **after** the entry is saved, so a legacy `onBeforeCreate` / `onBeforeUpdate` cannot be ported as is:
+3. **`name` is camelCase with only letters and digits** (`notifyUserOnLoanCreation`); the readable text goes in `label`.
+4. **The trigger and the name are fixed once the object is published**: on an approved object, Liferay silently ignores changes to `objectActionTriggerKey` and `name` of an existing action. To change them, create a new action (new `name` and new `externalReferenceCode`) and tell the administrator in `MIGRATION.md` to delete the old one.
+5. **Triggers**: `onAfterAdd`, `onAfterUpdate`, `onAfterDelete`, or `standalone` (run by a user from the entry's menu). Actions run **after** the entry is saved, so a legacy `onBeforeCreate` / `onBeforeUpdate` cannot be ported as is:
    - validation logic (`onBefore*` throwing a `ModelListenerException`) becomes an **Object Validation** (see 2.5 rule 5);
    - logic that changes the entry becomes an `update-object-entry` action or an `onAfter*` microservice action that updates the entry through the REST API, noted in `MIGRATION.md`.
-5. `update-object-entry` cannot use the `onAfterDelete` trigger.
+6. `update-object-entry` cannot use the `onAfterDelete` trigger.
 
 ### 4.2 Native Object Actions (inside the Object Definition)
 Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-entry` and `function#[client-extension-id]` for a microservice (4.4). Do not generate `groovy` actions: Groovy scripting is disabled on Liferay SaaS and in many installations.
@@ -686,12 +688,15 @@ A legacy e-mail (`MailServiceUtil`, `MailMessage`, `SubscriptionSender`) becomes
   ]
 }
 ```
-*Term syntax:* `[%` + object name in UPPERCASE without separators + `_` + field name in UPPERCASE without separators + `%]` (object `OamSpikeTicket`, field `requesterEmail` → `[%OAMSPIKETICKET_REQUESTEREMAIL%]`). Port the legacy subject and body text into these terms.
+*Term syntax:* `[%` + the object's `name` in UPPERCASE + `_` + the field's `name` in UPPERCASE + `%]`, with no underscores added inside either name (object `OamSpikeTicket`, field `requesterEmail` → `[%OAMSPIKETICKET_REQUESTEREMAIL%]`; object `Loan`, field `dueDate` → `[%LOAN_DUEDATE%]`). Port the legacy subject and body text into these terms.
+- Use the object's `name`, **never its `externalReferenceCode`** (`C_LOAN` → wrong `[%C_LOAN_DUEDATE%]`, right `[%LOAN_DUEDATE%]`).
+- Use only fields of the object itself: fields of related objects (the book's title in a Loan template) are not terms. If the legacy e-mail needs them, add a field to the object or move the e-mail to a microservice action, and say so in `MIGRATION.md`.
+- The recipient `to` is an e-mail field of the object (e.g. `[%LOAN_BORROWEREMAIL%]`) or a fixed address.
 
 The template needs the object, and the notification action needs the template, so the object definition is sent twice, in this file order (continuing the numbering of 2.7):
 1. `01-02-[entity]-definition.batch-engine-data.json`: the object with its fields and **without** notification actions (other native actions may already be here).
 2. `01-03-[entity]-notification-template.batch-engine-data.json`: the Notification Template(s) of that object.
-3. `01-04-[entity]-actions.batch-engine-data.json`: the **same** object definition again (same ERC, same fields with the same field ERCs) now including all its `objectActions`. UPSERT updates the object and adds the actions.
+3. `01-04-[entity]-actions.batch-engine-data.json`: the **complete** object definition of `01-02` again (every property and every field with the same field ERCs, never just the ERC and name) now including all its `objectActions`. UPSERT updates the object and adds the actions.
 Objects without notifications declare their actions directly in `01-02` and have no `01-03` / `01-04`.
 
 `client-extension.yaml` scopes for a batch with notifications: `Liferay.Headless.Batch.Engine.everything`, `Liferay.Object.Admin.REST.everything`, `Liferay.Notification.REST.everything` (plus `Liferay.Headless.Admin.List.Type.everything` for picklists).

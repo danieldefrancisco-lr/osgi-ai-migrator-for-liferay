@@ -23,6 +23,13 @@ public class MigrationReports {
     /** Object API sub-paths that Liferay does not have, e.g. `${OBJECT_PATH}/count`. */
     private static final Pattern INVENTED_ENDPOINT = Pattern.compile("/(count|search|list|all)['\"`?]");
     private static final Pattern URL_WITHOUT_O_PREFIX = Pattern.compile("['\"`]/(?:headless-[\\w-]+|c)/");
+    /** The business types of Liferay Objects fields. */
+    private static final List<String> BUSINESS_TYPES = List.of(
+        "Aggregation", "Attachment", "AutoIncrement", "Boolean", "Date", "DateTime", "Decimal", "Encrypted", "Formula",
+        "Integer", "LongInteger", "LongText", "MultiselectPicklist", "Picklist", "PrecisionDecimal", "Relationship", "RichText", "Text");
+    /** Object field names Liferay reserves for its system fields. */
+    private static final List<String> RESERVED_FIELD_NAMES = List.of(
+        "status", "id", "companyId", "groupId", "userId", "userName", "createDate", "modifiedDate", "uuid", "externalReferenceCode");
 
     public static String buildDonatelloReport(ModuleAnalysisResult analysisResult) {
         StringBuilder sb = new StringBuilder();
@@ -241,16 +248,44 @@ public class MigrationReports {
             warnings.add(path + " is a standalone ObjectAction batch file and was not written; declare the actions in the 'objectActions' array of the object definition.");
             return;
         }
+        if (content.contains("\"com.liferay.notification.rest.dto.v1_0.NotificationTemplate\"")) {
+            checkNotificationTerms(path, content, plan, warnings);
+        }
         for (String field : arrayItems(content, "objectFields")) {
             if (!field.contains("\"externalReferenceCode\"")) {
                 warnings.add(path + " has an object field without externalReferenceCode (" + nameOf(field) +
                     "); deploying the batch again fails with 'Duplicate name'.");
+            }
+            String businessType = topLevelString(field, "businessType");
+            if (businessType != null && !BUSINESS_TYPES.contains(businessType)) {
+                warnings.add(path + " field " + nameOf(field) + " has businessType '" + businessType +
+                    "', which Liferay Objects does not have (valid: " + String.join(", ", BUSINESS_TYPES) + ").");
+            }
+            String fieldName = topLevelString(field, "name");
+            if (RESERVED_FIELD_NAMES.contains(fieldName)) {
+                warnings.add(path + " has an object field named '" + fieldName + "', a reserved name ('Reserved name " + fieldName +
+                    "'); rename it with the entity prefix, e.g. '[entity]" + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1) + "'.");
+            }
+        }
+        for (String definition : arrayItems(content, "items")) {
+            if (!arrayItems(definition, "objectActions").isEmpty()) {
+                String erc = topLevelString(definition, "externalReferenceCode");
+                int fields = arrayItems(definition, "objectFields").size();
+                int expected = maxFieldCount(plan, erc);
+                if (fields < expected) {
+                    warnings.add(path + " repeats object " + erc + " with " + fields + " of its " + expected +
+                        " fields to add its actions; repeat the complete definition (every field with the same externalReferenceCode).");
+                }
             }
         }
         for (String action : arrayItems(content, "objectActions")) {
             String name = nameOf(action);
             if (!action.contains("\"externalReferenceCode\"")) {
                 warnings.add(path + " has an object action without externalReferenceCode (" + name + "); it is duplicated on every deployment.");
+            }
+            String rawName = topLevelString(action, "name");
+            if (rawName != null && !rawName.matches("[a-z][A-Za-z0-9]*")) {
+                warnings.add(path + " action " + name + " must have a camelCase name with only letters and digits (e.g. 'notifyUserOnCreation'); put the readable text in 'label'.");
             }
             if ((action.contains("\"update-object-entry\"") || action.contains("\"add-object-entry\"")) &&
                 !action.contains("\"objectDefinitionExternalReferenceCode\"")) {
@@ -265,6 +300,59 @@ public class MigrationReports {
                     ", but no generated client-extension.yaml defines that objectAction; deploy it before the batch.");
             }
         }
+    }
+
+    /** Template terms are [%OBJECTNAME_FIELDNAME%] built from the object's name and its own fields (validated on DXP 2026.q3). */
+    private static void checkNotificationTerms(String path, String content, MigrationPlan plan, List<String> warnings) {
+        for (String template : arrayItems(content, "items")) {
+            String objectErc = topLevelString(template, "objectDefinitionExternalReferenceCode");
+            String objectName = null;
+            java.util.Set<String> validTerms = new java.util.TreeSet<>();
+            for (String definition : definitions(plan)) {
+                if (objectErc != null && objectErc.equals(topLevelString(definition, "externalReferenceCode"))) {
+                    objectName = topLevelString(definition, "name");
+                    for (String field : arrayItems(definition, "objectFields")) {
+                        validTerms.add("[%" + objectName.toUpperCase() + "_" + topLevelString(field, "name").toUpperCase() + "%]");
+                    }
+                }
+            }
+            if (objectName == null) {
+                continue;
+            }
+            java.util.Set<String> wrong = new java.util.TreeSet<>();
+            Matcher terms = Pattern.compile("\\[%[A-Z0-9_]+%\\]").matcher(template);
+            while (terms.find()) {
+                if (!validTerms.contains(terms.group())) {
+                    wrong.add(terms.group());
+                }
+            }
+            if (!wrong.isEmpty()) {
+                warnings.add(path + " uses terms that are not fields of object " + objectName + ": " + String.join(", ", wrong) +
+                    " (Liferay sends them as plain text). Valid terms: " + String.join(", ", validTerms) + ".");
+            }
+        }
+    }
+
+    /** The ObjectDefinition items of every batch file in the plan. */
+    private static List<String> definitions(MigrationPlan plan) {
+        List<String> definitions = new ArrayList<>();
+        for (Map.Entry<String, String> e : plan.generatedFiles.entrySet()) {
+            if (e.getKey().endsWith(".batch-engine-data.json") &&
+                e.getValue().contains("\"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"")) {
+                definitions.addAll(arrayItems(e.getValue(), "items"));
+            }
+        }
+        return definitions;
+    }
+
+    private static int maxFieldCount(MigrationPlan plan, String erc) {
+        int max = 0;
+        for (String definition : definitions(plan)) {
+            if (erc != null && erc.equals(topLevelString(definition, "externalReferenceCode"))) {
+                max = Math.max(max, arrayItems(definition, "objectFields").size());
+            }
+        }
+        return max;
     }
 
     private static boolean definesObjectAction(MigrationPlan plan, String id) {
@@ -306,6 +394,12 @@ public class MigrationReports {
 
     /** The item's own "name", ignoring the ones nested in its parameters (e.g. predefinedValues). */
     private static String nameOf(String item) {
+        String name = topLevelString(item, "name");
+        return name != null ? "'" + name + "'" : "unnamed";
+    }
+
+    /** A string property of the item itself, not of the objects or arrays nested in it. */
+    private static String topLevelString(String item, String key) {
         StringBuilder topLevel = new StringBuilder();
         int depth = 0;
         for (char c : item.toCharArray()) {
@@ -317,8 +411,8 @@ public class MigrationReports {
                 topLevel.append(c);
             }
         }
-        Matcher m = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]*)\"").matcher(topLevel);
-        return m.find() ? "'" + m.group(1) + "'" : "unnamed";
+        Matcher m = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"").matcher(topLevel);
+        return m.find() ? m.group(1) : null;
     }
 
     /** Flags frontend code that calls Liferay APIs with an externalReferenceCode or a URL missing '/o/'. */

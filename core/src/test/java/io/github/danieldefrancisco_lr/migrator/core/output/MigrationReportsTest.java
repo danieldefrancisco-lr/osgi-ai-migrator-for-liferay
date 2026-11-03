@@ -48,6 +48,49 @@ class MigrationReportsTest {
     }
 
     @Test
+    void flagsReservedFieldsActionNamesAndIncompleteRepeats() {
+        MigrationPlan plan = file("client-extensions/l-object/batch/01-02-loan-definition.batch-engine-data.json",
+            "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"},\n" +
+            " \"items\": [{\"externalReferenceCode\": \"C_LOAN\", \"name\": \"Loan\", \"objectFields\": [\n" +
+            "  {\"externalReferenceCode\": \"FIELD_LOAN_DUEDATE\", \"label\": {\"en_US\": \"Due\"}, \"name\": \"dueDate\"},\n" +
+            "  {\"externalReferenceCode\": \"FIELD_LOAN_STATUS\", \"label\": {\"en_US\": \"Status\"}, \"name\": \"status\"}]}]}");
+        plan.generatedFiles.put("client-extensions/l-object/batch/01-05-loan-actions.batch-engine-data.json",
+            "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"},\n" +
+            " \"items\": [{\"externalReferenceCode\": \"C_LOAN\", \"name\": \"Loan\", \"objectActions\": [\n" +
+            "  {\"externalReferenceCode\": \"C_LOAN_ACTION_NOTIFY\", \"label\": {\"en_US\": \"Notify\"}, \"name\": \"Notify User on Loan Creation\",\n" +
+            "   \"objectActionExecutorKey\": \"notification\", \"objectActionTriggerKey\": \"onAfterAdd\", \"parameters\": {}}]}]}");
+
+        String report = report(plan);
+
+        assertTrue(report.contains("object field named 'status', a reserved name"), report);
+        assertFalse(report.contains("businessType"), report);
+        assertTrue(report.contains("action 'Notify User on Loan Creation' must have a camelCase name"), report);
+        assertTrue(report.contains("repeats object C_LOAN with 0 of its 2 fields"), report);
+    }
+
+    @Test
+    void flagsNotificationTermsThatAreNotFieldsOfTheObject() {
+        MigrationPlan plan = file("client-extensions/l-object/batch/01-02-loan-definition.batch-engine-data.json",
+            "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition\"},\n" +
+            " \"items\": [{\"externalReferenceCode\": \"C_LOAN\", \"name\": \"Loan\", \"objectFields\": [\n" +
+            "  {\"externalReferenceCode\": \"FIELD_LOAN_DUEDATE\", \"name\": \"dueDate\"},\n" +
+            "  {\"externalReferenceCode\": \"FIELD_LOAN_BORROWEREMAIL\", \"name\": \"borrowerEmail\"},\n" +
+            "  {\"businessType\": \"User\", \"externalReferenceCode\": \"FIELD_LOAN_BORROWERUSER\", \"name\": \"borrowerUser\"}]}]}");
+        plan.generatedFiles.put("client-extensions/l-object/batch/01-03-loan-notification-template.batch-engine-data.json",
+            "{\"configuration\": {\"className\": \"com.liferay.notification.rest.dto.v1_0.NotificationTemplate\"},\n" +
+            " \"items\": [{\"externalReferenceCode\": \"NT_LOAN\", \"objectDefinitionExternalReferenceCode\": \"C_LOAN\",\n" +
+            "  \"subject\": {\"en_US\": \"Due [%LOAN_DUEDATE%] for [%CLOAN_BOOK_TITLE%]\"},\n" +
+            "  \"recipients\": [{\"to\": {\"en_US\": \"[%LOAN_BORROWEREMAIL%]\"}}],\n" +
+            "  \"body\": {\"en_US\": \"Due on [%C_LOAN_DUE_DATE%]\"}}]}");
+
+        String report = report(plan);
+
+        assertTrue(report.contains("uses terms that are not fields of object Loan: [%CLOAN_BOOK_TITLE%], [%C_LOAN_DUE_DATE%]"), report);
+        assertTrue(report.contains("Valid terms: [%LOAN_BORROWEREMAIL%], [%LOAN_BORROWERUSER%], [%LOAN_DUEDATE%]"), report);
+        assertTrue(report.contains("field 'borrowerUser' has businessType 'User', which Liferay Objects does not have"), report);
+    }
+
+    @Test
     void flagsStandaloneObjectActionFiles() {
         String report = report(file("client-extensions/t-object/batch/01-03-ticket-actions.batch-engine-data.json",
             "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectAction\"}, \"items\": []}"));

@@ -16,6 +16,10 @@ Determine:
    for each microservice: its client extension id and port.
    The backend and frontend coders work in parallel and never see each other's files: this contract is the ONLY way they agree on names, codes and URLs.
 
+FORMAT: do NOT use Markdown tables anywhere in the blueprint; use headings and bullet lists (e.g. '- `title` (String, Text, required)'). Never draw lines of dashes.
+Describe the design in prose and tables: NEVER write file contents (JSON, YAML, Java, JavaScript) in the blueprint; the coders write the files from the playbook templates.
+Legacy columns with a reserved name (status, id, companyId, groupId, userId, userName, createDate, modifiedDate, uuid, externalReferenceCode) get a new field name prefixed with the entity (e.g. 'status' -> 'bookStatus'); list the rename in the API CONTRACT.
+
 ### Legacy Module Analysis:
 Module Name: library-service
 Source Liferay Platform Version: portal-7.3-ga1
@@ -24,6 +28,9 @@ Portlets Detected:
 Listeners Detected: BookModelListener.java
 Schedulers Detected: OverdueBooksScheduler.java
 Notifications Detected: OverdueBooksScheduler.java
+
+REQUIRED FIELD RENAMES (these service.xml columns use names Liferay Objects reserve; use the new names everywhere: objectFields, API CONTRACT, frontend, notification terms):
+- Book.status -> bookStatus
 
 --- File: service.xml ---
 <?xml version="1.0"?>
