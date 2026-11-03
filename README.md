@@ -1,35 +1,63 @@
 # OSGi AI Migrator for Liferay
 
-Eclipse plugin that uses Google Gemini to help modernize legacy Liferay 7.x OSGi modules
-into Liferay Objects and Client Extensions.
+AI-assisted migration of legacy Liferay 7.x OSGi modules (Service Builder entities, JSP portlets, model listeners,
+service wrappers, custom `*LocalServiceImpl` logic, e-mail notifications, theme WARs) into **Liferay Objects and
+Client Extensions**. One migration engine, available where you work:
+
+| Product | What it is | Get it |
+|---|---|---|
+| **Eclipse / Liferay Developer Studio plugin** | Migration wizard on the module's context menu | [Eclipse Marketplace](https://marketplace.eclipse.org/content/osgi-ai-migrator-liferay) or the [update site](#eclipse-and-liferay-developer-studio) |
+| **IntelliJ IDEA plugin** | The same wizard in every JetBrains IDE (2024.3+) | [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay) (in review) or the zip in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
+| **VS Code extension** | The same wizard in VS Code | [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=DanieldeFrancisco.osgi-ai-migrator) |
+| **CLI** | `analyze`, `migrate`, `apply`, plus `verify` and `knowledge`, which need no AI | `osgi-ai-migrator-cli-X.jar` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
+| **Agent skill** | Lets a coding agent (Claude Code, Gemini CLI, Codex...) do the migration, verify and deploy it | `osgi-ai-migrator-skill-X.zip` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) (from 3.4.0) |
+
+The IDE plugins and the CLI use Google Gemini; the agent skill uses whichever model the coding agent runs. All of
+them share the same analyzer, playbooks and checks, and are released together with one version number.
 
 > **Disclaimer:** this is an independent personal project. It is not affiliated with,
 > endorsed by, or supported by Liferay, Inc. Liferay and Liferay DXP are trademarks of
 > Liferay, Inc.
 
+## How it works
+
+Four agents, named after the Ninja Turtles, run on the selected module:
+
+1. **Donatello** (analyzer, no AI) reads `service.xml`, JSPs, portlet classes, model listeners, service wrappers,
+   `*LocalServiceImpl` classes, schedulers and theme templates. It lists every custom method with the Object Action
+   trigger it maps to and the `service.xml` columns that must be renamed (e.g. `status` → `loanStatus`).
+2. **Leonardo** (architect) writes the migration plan, with an API contract that the coders share.
+3. **Michelangelo** (coders) writes the client extensions in parallel, from playbook templates validated on Liferay
+   DXP 2026.
+4. **Raphael** (verifier, no AI) checks the files for the mistakes Liferay rejects at deployment and writes the
+   `MIGRATION.md` checklist.
+
+In the agent skill, the coding agent plays Leonardo and Michelangelo, and runs Raphael (`verify`) until it is clean.
+
 ## Features
 
-- **Context menu**: right-click a module → **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...**
-- **4-agent migration wizard**: Donatello (analyze), Leonardo (architect), Michelangelo (generate), Raphael (verify).
-- **Analyzer** for `service.xml`, JSPs, portlet classes, model listeners, schedulers and theme templates. It lists every
-  method of Model Listeners, Service Wrappers and custom `*LocalServiceImpl` classes with the Object Action trigger it maps to.
+- **Liferay Objects** from Service Builder entities: Batch Client Extension with folder, picklists, object
+  definitions and relationships, with reserved column names renamed.
+- **React Custom Elements** and page fragments from JSP portlets, calling the objects' REST APIs.
 - **Object Actions**: native actions (notification, webhook, update entry) and notification templates in the Batch
-  Client Extension, and a Spring Boot `objectAction` client extension for custom logic, with the setup for each way
-  Liferay runs (local bundle, Docker, remote server, SaaS/PaaS) in `MIGRATION.md`.
-- **Raphael's checks** for the mistakes Liferay rejects at deployment (reserved field names, missing external
-  reference codes, invalid action parameters and notification terms, microservice ports and OAuth scopes...).
-- **Agent skill** for Claude Code, Gemini CLI, Codex and other coding agents, built from the same playbooks
-  ([Agent skill](#agent-skill-claude-code-gemini-cli-codex-and-other-coding-agents)).
-- **Gemini authentication**: gcloud ADC, Vertex AI service account, or Google AI Studio API key
-  (stored in Eclipse Secure Storage).
+  Client Extension, and one Spring Boot `objectAction` microservice per module for custom logic, with the setup for
+  each way Liferay runs (local bundle, Docker, remote server, SaaS/PaaS) in `MIGRATION.md`.
+- **Themes**: theme CSS and Style Book token client extensions from a theme WAR (the favicon and spritemap images are
+  still copied by hand).
+- **Raphael's checks**: reserved field names, missing external reference codes, invalid action parameters and
+  notification terms, microservice ports and OAuth scopes, invented APIs, date formats and more.
+- **Gemini authentication** (plugins and CLI): gcloud ADC, Vertex AI service account, or Google AI Studio API key,
+  kept in each IDE's secure storage.
 
 ## Requirements
 
-- Eclipse 2024-12 (4.34) or later, or Liferay Developer Studio
-- Java 17 or later
-- Access to Gemini through Google AI Studio or Vertex AI
+- Java 17 or later.
+- A Liferay workspace to write into (the module to migrate can be inside it or elsewhere).
+- For the IDE plugins and the CLI: access to Gemini through Google AI Studio or Vertex AI.
+- Per product: Eclipse 2024-12 (4.34) or later, or Liferay Developer Studio; a JetBrains IDE 2024.3 or later;
+  VS Code; or a coding agent that can read files and run shell commands.
 
-## Install
+## Eclipse and Liferay Developer Studio
 
 From the [Eclipse Marketplace](https://marketplace.eclipse.org/content/osgi-ai-migrator-liferay):
 drag this button into a running Eclipse workspace.
@@ -42,12 +70,16 @@ Or use *Help → Install New Software → Add…* and enter the update site URL:
 https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
 ```
 
+Right-click a module → **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...** to open the wizard. Gemini is
+configured in **Window → Preferences → OSGi AI Migrator for Liferay** (the API key goes to Eclipse Secure Storage).
+
 ## IntelliJ IDEA and other JetBrains IDEs
 
 The `intellij/` plugin works in every JetBrains IDE from 2024.3 on. Right-click a module (or one of its
 folders) in the Project view and choose **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...**;
 Gemini is configured in **Settings → Tools → OSGi AI Migrator for Liferay** (the API key goes to the IDE's
-password safe). Until it is on the JetBrains Marketplace, install the zip with
+password safe). Install it from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay)
+once its review is done; until then, download `osgi-ai-migrator-intellij-X.zip` from the releases and use
 **Settings → Plugins → ⚙ → Install Plugin from Disk...**.
 
 To build it, install the core with Maven first, then use Gradle:
@@ -229,20 +261,26 @@ Requires JDK 17+. Maven is downloaded by the wrapper (pinned to 3.9.11).
 ./mvnw clean verify      # Windows: mvnw.cmd clean verify
 ```
 
-The p2 update site is generated in
-`releng/io.github.danieldefrancisco_lr.migrator.updatesite/target/repository/`
-(also zipped next to it).
+The Maven build produces the core, the CLI, the agent skill and the Eclipse plugin:
+
+- Eclipse p2 update site: `releng/io.github.danieldefrancisco_lr.migrator.updatesite/target/repository/` (also zipped next to it)
+- CLI: `cli/target/osgi-ai-migrator-cli.jar`
+- Agent skill: `skill/target/osgi-ai-migrator-skill.zip`
+
+The IntelliJ plugin (Gradle) and the VS Code extension (npm) build on top of it, as described in their sections.
 
 ## Tests
 
-The build runs characterization tests that pin the plugin's behavior. They run the whole pipeline on the
+The build runs characterization tests that pin the migrator's behavior. They run the whole pipeline on the
 synthetic legacy modules in `testdata/fixtures`, with Gemini replaced by the canned answers in
-`testdata/responses`, and compare everything the plugin produces (analysis, the exact prompts sent to each
+`testdata/responses`, and compare everything the pipeline produces (analysis, the exact prompts sent to each
 agent, reports and the files written to the workspace) with `testdata/golden`:
 
-- `core` runs them outside Eclipse, the way the CLI and other IDEs will.
+- `core` runs them outside Eclipse, the way the CLI, the other IDEs and the agent skill use the engine.
 - `bundles/io.github.danieldefrancisco_lr.migrator.tests` runs them inside Eclipse, through the plugin's
   workspace integration and the "Apply to Workspace" step.
+- `cli` runs the CLI commands (`migrate`, `apply`, `verify`, `knowledge`) on the same fixtures.
+- Unit tests cover the custom-logic extractor and each of Raphael's checks.
 
 When a change is meant to alter the output (for example, editing a playbook changes the prompts), update the
 goldens and review the diff before committing:
@@ -259,9 +297,10 @@ On Linux the Eclipse tests need a display; CI runs them with `xvfb-run`.
 All products share one version, taken from the Maven poms (the IntelliJ plugin and the VS Code
 extension read it from there in CI). Pushes to `main` and pull requests only build. Pushing a `v*` tag that
 matches that version publishes the Eclipse update site to GitHub Pages and creates a GitHub Release with the
-update site zip, the CLI jar, the IntelliJ plugin zip and the VS Code `.vsix`. It also publishes to the
-JetBrains Marketplace, the VS Code Marketplace and Open VSX when the repository secrets `JETBRAINS_TOKEN`,
-`VSCE_PAT` and `OVSX_PAT` are set (each store is skipped otherwise):
+update site zip, the CLI jar, the agent skill zip, the IntelliJ plugin zip and the VS Code `.vsix`. It also
+publishes to the JetBrains Marketplace, the VS Code Marketplace and Open VSX when the repository secrets
+`JETBRAINS_TOKEN`, `VSCE_PAT` and `OVSX_PAT` are set (each store is skipped otherwise, and a store that rejects the
+upload does not block the release):
 
 1. Set the new version, for example
    `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=3.4.0-SNAPSHOT`
@@ -289,7 +328,7 @@ skill                                                 Agent skill: instructions;
 testdata                                              Test fixtures, canned Gemini answers and goldens
 ```
 
-To work on the plugin in Eclipse (PDE), run the Maven build once so `lib/` contains the core jar.
+To work on the Eclipse plugin in Eclipse (PDE), run the Maven build once so `lib/` contains the core jar.
 
 ## License
 
