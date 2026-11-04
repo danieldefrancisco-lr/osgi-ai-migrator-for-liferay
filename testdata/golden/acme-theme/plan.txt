@@ -25,6 +25,19 @@ if (configuration.enableStickyHeader) {
 		document.body.classList.toggle('acme-sticky', window.scrollY > 80);
 	});
 }
+--- client-extensions/acme-theme/src/css/_custom.scss ---
+@import 'components/breadcrumb';
+@import 'acme/index';
+
+body {
+	header {
+		background-color: $acme-header-bg;
+	}
+}
+
+// Imported by the legacy theme's main.scss, which the design pack replaces
+@import 'acme/sticky';
+
 --- fragments/acme-theme-fragments/collection.json ---
 {
 	"description": "Header and footer of the Acme Theme theme",
@@ -130,9 +143,10 @@ client-extensions/acme-theme/assets/images/favicon.ico <= ${ROOT}/maven-workspac
 client-extensions/acme-theme/assets/images/logo.png <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/images/logo.png
 client-extensions/acme-theme/assets/js/sticky.js <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/js/sticky.js
 client-extensions/acme-theme/src/css/_clay_variables.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/_clay_variables.scss
-client-extensions/acme-theme/src/css/_custom.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/_custom.scss
 client-extensions/acme-theme/src/css/acme/_header.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_header.scss
 client-extensions/acme-theme/src/css/acme/_index.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_index.scss
+client-extensions/acme-theme/src/css/acme/_mixins.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_mixins
+client-extensions/acme-theme/src/css/acme/_sticky.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_sticky.scss
 client-extensions/acme-theme/src/css/acme/_variables.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_variables.scss
 client-extensions/acme-theme/src/css/acme/fonts/acme-sans.woff2 <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/fonts/acme-sans.woff2
 client-extensions/acme-theme/src/css/components/_breadcrumb.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/components/_breadcrumb.scss

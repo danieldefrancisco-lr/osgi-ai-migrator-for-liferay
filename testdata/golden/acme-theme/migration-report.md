@@ -35,7 +35,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: YES
        * Theme Acme Theme (acme)
-       * 9 SCSS sources, 5 of the theme's own: css/_clay_variables.scss, css/_custom.scss, css/acme/_header.scss, css/acme/_index.scss, css/acme/_variables.scss
+       * 11 SCSS sources, 6 of the theme's own: css/_clay_variables.scss, css/_custom.scss, css/acme/_header.scss, css/acme/_index.scss, css/acme/_sticky.scss, css/acme/_variables.scss
        * 1 Style Book tokens in WEB-INF/frontend-token-definition.json
        * 2 images and fonts of the theme, custom favicon (+ 0 base theme images, copied only if its SCSS uses them)
        * JavaScript with code: js/sticky.js
@@ -79,6 +79,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
 ## 3. Michelangelo (The Coder) - Generated Artifacts Inventory
 
 - `fragments/acme-theme-fragments/acme-theme-header/index.js`
+- `client-extensions/acme-theme/src/css/_custom.scss`
 - `fragments/acme-theme-fragments/collection.json`
 - `fragments/acme-theme-fragments/acme-theme-header/configuration.json`
 - `fragments/acme-theme-fragments/acme-theme-footer/fragment.json`
@@ -89,7 +90,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
 - `fragments/acme-theme-fragments/acme-theme-header/index.html`
 - `fragments/acme-theme-fragments/acme-theme-header/index.css`
 - `client-extensions/acme-theme/client-extension.yaml`
-- 12 files copied as they are from the legacy module (SCSS, images, fonts, JavaScript)
+- 13 files copied as they are from the legacy module (SCSS, images, fonts, JavaScript)
 
 ---
 
@@ -98,7 +99,7 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
 The client extension `client-extensions/acme-theme` was built without AI from the theme's files:
 
 - Theme Acme Theme (acme)
-- 9 SCSS sources, 5 of the theme's own: css/_clay_variables.scss, css/_custom.scss, css/acme/_header.scss, css/acme/_index.scss, css/acme/_variables.scss
+- 11 SCSS sources, 6 of the theme's own: css/_clay_variables.scss, css/_custom.scss, css/acme/_header.scss, css/acme/_index.scss, css/acme/_sticky.scss, css/acme/_variables.scss
 - 1 Style Book tokens in WEB-INF/frontend-token-definition.json
 - 2 images and fonts of the theme, custom favicon (+ 0 base theme images, copied only if its SCSS uses them)
 - JavaScript with code: js/sticky.js
@@ -137,7 +138,7 @@ RAPHAEL (THE VERIFIER) - PRE-FLIGHT QUALITY ASSURANCE REPORT
 
 PRE-FLIGHT CHECKS:
    [PASS] Canonical client-extension.yaml present
-   [PASS] Zero schema conflicts or anti-patterns detected.
+   [WARN] client-extensions/acme-theme/src/css/_custom.scss styles body/html at the top level, which also restyles Liferay's menus; scope the rules under #wrapper.
 
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 

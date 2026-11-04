@@ -4,7 +4,7 @@ RAPHAEL (THE VERIFIER) - PRE-FLIGHT QUALITY ASSURANCE REPORT
 
 PRE-FLIGHT CHECKS:
    [PASS] Canonical client-extension.yaml present
-   [PASS] Zero schema conflicts or anti-patterns detected.
+   [WARN] client-extensions/acme-theme/src/css/_custom.scss styles body/html at the top level, which also restyles Liferay's menus; scope the rules under #wrapper.
 
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 

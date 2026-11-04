@@ -2,7 +2,7 @@ Success
 Raphael (Verifier): Successfully written modern artifacts to:
 ${ROOT}/maven-workspace
 
-Files created: 11
+Files created: 12
 
 Fragment Collections zipped and ready to import:
   -> fragments/acme-theme-fragments.zip

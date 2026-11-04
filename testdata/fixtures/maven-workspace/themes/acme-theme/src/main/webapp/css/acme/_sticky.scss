@@ -1,0 +1,5 @@
+.acme-header.sticky {
+	position: fixed;
+	top: 0;
+	@include acme-token(background-color, --acme-header-bg, #222);
+}

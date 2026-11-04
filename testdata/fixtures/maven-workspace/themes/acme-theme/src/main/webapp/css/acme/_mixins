@@ -1,0 +1,3 @@
+@mixin acme-token($property, $token, $default) {
+	#{$property}: var($token, $default);
+}

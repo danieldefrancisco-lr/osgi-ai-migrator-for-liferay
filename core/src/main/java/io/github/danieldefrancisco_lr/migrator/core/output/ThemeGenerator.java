@@ -11,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -51,7 +52,7 @@ public class ThemeGenerator {
                         }
                     } else if (!isBaseDir(top)) {
                         copied.add(rel);
-                        if (rel.endsWith(".scss")) {
+                        if (rel.endsWith(".scss") || isExtensionlessPartial(rel)) {
                             toScan.add(rel);
                         } else {
                             // Plain CSS, fonts and images of the theme's folders are also served, for url() and CSS @imports
@@ -72,6 +73,45 @@ public class ThemeGenerator {
                 }
             }
         }
+        // The design pack brings its own main.scss and clay.scss, so imports a theme added to them (e.g. Formed's
+        // "@import 'formed/index';" at the end of main.scss) move to the hook each entry file imports last
+        Map<String, String> hookAdditions = new java.util.LinkedHashMap<>();
+        for (String[] entry : new String[][] {{"main.scss", "_custom.scss"}, {"clay.scss", "_clay_custom.scss"}}) {
+            if (!Files.isRegularFile(css.resolve(entry[0]))) {
+                continue;
+            }
+            StringBuilder extra = new StringBuilder();
+            for (String imported : imports(Files.readString(css.resolve(entry[0]), StandardCharsets.UTF_8))) {
+                if (!isBaseEntryImport(imported)) {
+                    extra.append("@import '").append(imported).append("';\n");
+                    String resolved = resolve(css, entry[0], imported);
+                    if (resolved != null && copied.add(resolved)) {
+                        toScan.add(resolved);
+                    }
+                }
+            }
+            if (extra.length() > 0) {
+                hookAdditions.put(entry[1], "\n// Imported by the legacy theme's " + entry[0] + ", which the design pack replaces\n" + extra);
+            }
+        }
+        while (!toScan.isEmpty()) {
+            String rel = toScan.poll();
+            String content = Files.readString(css.resolve(rel), StandardCharsets.UTF_8);
+            for (String imported : imports(content)) {
+                String resolved = resolve(css, rel, imported);
+                if (resolved != null && !copied.contains(resolved) && !resolved.startsWith("clay/")) {
+                    copied.add(resolved);
+                    toScan.add(resolved);
+                }
+            }
+        }
+        for (Map.Entry<String, String> hook : hookAdditions.entrySet()) {
+            String original = Files.isRegularFile(css.resolve(hook.getKey())) ?
+                Files.readString(css.resolve(hook.getKey()), StandardCharsets.UTF_8) : "";
+            copied.remove(hook.getKey());
+            plan.generatedFiles.put(dir + "/src/css/" + hook.getKey(), original + hook.getValue());
+        }
+
         Set<String> baseImages = new java.util.HashSet<>(theme.baseImages);
         for (String rel : copied) {
             plan.copiedFiles.put(dir + "/src/css/" + asPartial(css, rel), css.resolve(rel).toString());
@@ -160,7 +200,8 @@ public class ThemeGenerator {
             String name = path.substring(dir.length());
             String[] candidates = name.endsWith(".css") || name.endsWith(".scss") ?
                 new String[] {dir + name, dir + "_" + name} :
-                new String[] {dir + "_" + name + ".scss", dir + name + ".scss", dir + name + ".css", path + "/_index.scss", path + "/index.scss"};
+                new String[] {dir + "_" + name + ".scss", dir + name + ".scss", dir + name + ".css", path + "/_index.scss", path + "/index.scss",
+                    dir + "_" + name};
             for (String c : candidates) {
                 if (Files.isRegularFile(css.resolve(c))) {
                     return c;
@@ -178,11 +219,21 @@ public class ThemeGenerator {
     static String asPartial(Path css, String rel) {
         int slash = rel.lastIndexOf('/');
         String name = rel.substring(slash + 1);
+        if (isExtensionlessPartial(rel)) {
+            // The 7.x compiler accepted partials without extension (Formed's formed/_mixins); Dart Sass needs .scss
+            return rel + ".scss";
+        }
         if (slash < 0 || !name.endsWith(".scss") || name.startsWith("_") ||
             Files.exists(css.resolve(rel.substring(0, slash + 1) + "_" + name))) {
             return rel;
         }
         return rel.substring(0, slash + 1) + "_" + name;
+    }
+
+    /** A Sass partial saved without extension, e.g. formed/_mixins. */
+    static boolean isExtensionlessPartial(String rel) {
+        String name = rel.substring(rel.lastIndexOf('/') + 1);
+        return name.startsWith("_") && !name.contains(".");
     }
 
     private static String normalize(String path) {
@@ -198,6 +249,14 @@ public class ThemeGenerator {
             }
         }
         return String.join("/", parts);
+    }
+
+    /** What the base theme's main.scss and clay.scss import; anything else was added by the theme. */
+    static boolean isBaseEntryImport(String imported) {
+        String name = imported.replaceAll("^\\./", "").replaceAll("^_", "").replaceAll("\\.scss$", "");
+        return name.startsWith("clay/") || Set.of("imports", "base", "portal", "taglib", "application", "layout", "navigation",
+            "portlet", "widget", "extras", "custom", "clay_variables", "clay_custom", "liferay_variables", "liferay_variables_custom",
+            "liferay_custom", "custom_properties", "atlas_variables", "clay").contains(name);
     }
 
     private static boolean isHook(String file) {
