@@ -705,13 +705,15 @@ POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
   [zip entry] book-card/index.html
 <div class="book-card">${title}</div>
   [zip entry] collection.json
-{"name": "Library Fragments"}
+{
+	"fragmentCollectionKey": "library-fragments","name": "Library Fragments"}
 === fragments/library-fragments/book-card/fragment.json ===
 {"fragmentEntryKey": "book-card", "htmlPath": "index.html", "name": "Book Card", "type": "component"}
 === fragments/library-fragments/book-card/index.html ===
 <div class="book-card">${title}</div>
 === fragments/library-fragments/collection.json ===
-{"name": "Library Fragments"}
+{
+	"fragmentCollectionKey": "library-fragments","name": "Library Fragments"}
 === fragments/library-web-fragments.zip ===
   [zip entry] book-card-v2/fragment.json
 {"fragmentEntryKey": "book-card-v2", "name": "Book Card V2"}

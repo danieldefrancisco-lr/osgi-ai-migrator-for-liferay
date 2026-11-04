@@ -1,0 +1,8 @@
+@import 'components/breadcrumb';
+@import 'acme/index';
+
+body {
+	header {
+		background-color: $acme-header-bg;
+	}
+}

@@ -56,6 +56,12 @@ public class Dumps {
         for (Map.Entry<String, String> e : plan.generatedFiles.entrySet()) {
             sb.append("--- ").append(e.getKey()).append(" ---\n").append(e.getValue()).append("\n");
         }
+        if (!plan.copiedFiles.isEmpty()) {
+            sb.append("copiedFiles:\n");
+            for (Map.Entry<String, String> e : plan.copiedFiles.entrySet()) {
+                sb.append(e.getKey()).append(" <= ").append(e.getValue().replace('\\', '/')).append("\n");
+            }
+        }
         return sb.toString();
     }
 
@@ -78,6 +84,8 @@ public class Dumps {
             sb.append("=== ").append(rel).append(" ===\n");
             if (rel.endsWith(".zip")) {
                 sb.append(zipListing(file));
+            } else if (rel.matches(".*\\.(png|jpe?g|gif|ico|woff2?|ttf|eot|otf)$")) {
+                sb.append("(binary, ").append(Files.size(file)).append(" bytes)\n");
             } else {
                 sb.append(Files.readString(file, StandardCharsets.UTF_8)).append("\n");
             }

@@ -1,0 +1,88 @@
+Here is the fragment collection.
+
+=== FILE: fragments/acme-theme-fragments/collection.json ===
+{
+	"description": "Header and footer of the Acme Theme theme",
+	"fragmentCollectionKey": "acme-theme-fragments",
+	"name": "Acme Theme"
+}
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-header/fragment.json ===
+{
+	"configurationPath": "configuration.json",
+	"cssPath": "index.css",
+	"fragmentEntryKey": "acme-theme-header",
+	"htmlPath": "index.html",
+	"jsPath": "index.js",
+	"name": "Acme Theme Header",
+	"type": "component"
+}
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-header/configuration.json ===
+{
+	"fieldSets": [
+		{
+			"fields": [
+				{
+					"defaultValue": true,
+					"label": "show-header-search",
+					"name": "showHeaderSearch",
+					"type": "checkbox"
+				},
+				{
+					"defaultValue": false,
+					"label": "enable-sticky-header",
+					"name": "enableStickyHeader",
+					"type": "checkbox"
+				}
+			]
+		}
+	]
+}
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-header/index.html ===
+<header class="acme-header" id="banner">
+	<a class="logo" data-lfr-editable-id="home-link" data-lfr-editable-type="link" href="/">
+		<img alt="Logo" data-lfr-editable-id="logo" data-lfr-editable-type="image" src="" />
+	</a>
+	<span class="site-name" data-lfr-editable-id="site-name" data-lfr-editable-type="text">Acme</span>
+	<div class="acme-search[#if !configuration.showHeaderSearch] d-none[/#if]">
+		<lfr-drop-zone data-lfr-drop-zone-id="search-bar"></lfr-drop-zone>
+	</div>
+	<nav>
+		<lfr-drop-zone data-lfr-drop-zone-id="navigation"></lfr-drop-zone>
+	</nav>
+</header>
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-header/index.css ===
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-header/index.js ===
+if (configuration.enableStickyHeader) {
+	window.addEventListener('scroll', function () {
+		document.body.classList.toggle('acme-sticky', window.scrollY > 80);
+	});
+}
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-footer/fragment.json ===
+{
+	"cssPath": "index.css",
+	"htmlPath": "index.html",
+	"name": "Acme Theme Footer",
+	"type": "component"
+}
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-footer/index.html ===
+<footer class="acme-footer" id="footer">
+	<p data-lfr-editable-id="footer-text" data-lfr-editable-type="text">Powered by Acme</p>
+</footer>
+=== END FILE ===
+
+=== FILE: fragments/acme-theme-fragments/acme-theme-footer/index.css ===
+=== END FILE ===

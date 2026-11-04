@@ -1,6 +1,7 @@
 package io.github.danieldefrancisco_lr.migrator.core.agent;
 
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.output.ThemeGenerator;
 
 import java.io.File;
 import java.io.InputStream;
@@ -30,6 +31,8 @@ public class AgentOrchestrator {
     public static class MigrationPlan {
         public String architectureBlueprint;
         public Map<String, String> generatedFiles = new HashMap<>();
+        /** Files copied as they are from the legacy module: workspace-relative destination -> absolute source path. */
+        public Map<String, String> copiedFiles = new java.util.TreeMap<>();
     }
 
     public MigrationPlan planAndGenerate(ModuleAnalysisResult analysis, String workspaceRoot) throws Exception {
@@ -61,6 +64,15 @@ public class AgentOrchestrator {
                 "(set fields, create an entry, e-mail, plain HTTP POST) -> native Object Action; anything else (calculations, conditions on several fields,\n" +
                 "calls to external systems with custom payloads, several steps) -> the Spring Boot objectAction microservice; 'query' methods -> REST\n" +
                 "filters in the frontend; validations that throw -> Object Validations. Name every decision in the blueprint.\n\n");
+        }
+        if (analysis.theme != null) {
+            legacyContext.append("THEME INVENTORY (the migrator writes the theme client extension '" + ThemeGenerator.slug(analysis.theme.themeId) +
+                "' itself, without AI: theme CSS from the theme's SCSS, its Style Book tokens, images and JavaScript. Do NOT generate it;\n" +
+                "plan and generate only the header/footer fragments and master page that replace its FreeMarker templates and settings):\n");
+            for (String line : analysis.theme.summary()) {
+                legacyContext.append("- ").append(line).append("\n");
+            }
+            legacyContext.append("\n");
         }
         String renames = reservedColumnRenames(analysis);
         if (!renames.isEmpty()) {
@@ -143,6 +155,11 @@ public class AgentOrchestrator {
         boolean needBackend = generateBackendObjects && (!analysis.detectedEntities.isEmpty() || analysis.hasServiceBuilder);
         boolean needFrontend = analysis.hasJspPortlet || !analysis.detectedPortlets.isEmpty();
 
+        // A theme only needs the fragments that replace its templates (its client extension needs no AI)
+        boolean themeOnly = analysis.theme != null && !needBackend && !needFrontend;
+        if (themeOnly) {
+            needFrontend = true;
+        }
         // Fallback: If neither was strictly flagged, run both so nothing is missed
         if (!needBackend && !needFrontend) {
             needBackend = generateBackendObjects;
@@ -203,7 +220,41 @@ public class AgentOrchestrator {
             });
         }
 
-        if (needFrontend) {
+        if (needFrontend && themeOnly) {
+            String themeSlug = ThemeGenerator.slug(analysis.theme.themeId);
+            String themeInstruction = "You are Michelangelo (Frontend Specialist), specialized in Liferay Page Fragments that replace classic theme templates.\n" +
+                "Follow the generation playbook rules below:\n\n" + generationPlaybook + "\n\n" +
+                "### STRICT THEME FRAGMENT RULES:\n" +
+                "1. Generate ONLY the fragment collection of playbook section 9.2, under 'fragments/" + themeSlug + "-fragments/': collection.json,\n" +
+                "   a header fragment and a footer fragment (plus a separate fragment only for a clearly separate bar of the template), each with\n" +
+                "   fragment.json, index.html, index.css (and configuration.json, index.js when needed).\n" +
+                "2. DO NOT generate client-extensions/, the theme CSS, client-extension.yaml, package.json, React or batch files: the migrator writes the theme client extension.\n" +
+                "3. Keep the template's HTML structure, CSS classes and ids, so the migrated theme CSS styles the fragments. index.css only holds what\n" +
+                "   the fragment needs beyond the theme CSS (usually nothing; leave it empty rather than copying theme styles).\n" +
+                "4. Replace the template's FreeMarker as in the playbook 9.2 table: editable fields for texts, logo and links; <lfr-drop-zone></lfr-drop-zone>\n" +
+                "   for navigation, search, user bar, language selector and embedded portlets; nothing for control menu, includes, <html>/<head>/<body> and the content area.\n" +
+                "5. Fragment FreeMarker uses square brackets ([#if configuration.x]...[/#if]); never <#if>, ${theme_display}, nav_items or theme variables.\n" +
+                "6. Each configurable theme setting the template uses becomes a configuration.json field (checkbox -> \"type\": \"checkbox\" with no dataType: \"dataType\": \"bool\" is rejected).\n" +
+                "7. index.js: only plain DOM code using fragmentElement and configuration; no AUI.\n" +
+                "8. collection.json has \"fragmentCollectionKey\" (the collection folder name) and every fragment.json \"fragmentEntryKey\" (its folder name).\n" +
+                "9. EVERY drop zone has a stable id (<lfr-drop-zone data-lfr-drop-zone-id=\"navigation\">) and NO drop zone or editable field is inside [#if]:\n" +
+                "   hide optional parts with a class instead (class=\"language-selector[#if !configuration.showLanguageSelector] d-none[/#if]\"). Otherwise\n" +
+                "   Liferay matches drop zones by position and the widgets move to another zone when an option changes.\n" +
+                "10. Only settings that change this fragment's markup become configuration; portal-behaviour settings (use-sign-in-modal, wrap-widget-page-content...) go to the blueprint for MIGRATION.md.\n";
+
+            String themePrompt = "Based on Leonardo's blueprint below, generate the fragment collection that replaces the theme templates.\n" +
+                "Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.\n\n" +
+                "Blueprint:\n" + blueprint + "\n\n" +
+                "Legacy Context:\n" + legacyContext.toString();
+
+            frontendFuture = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return geminiClient.generateContent(themeInstruction, themePrompt);
+                } catch (Exception e) {
+                    throw new RuntimeException("[Michelangelo Theme Fragments Worker]: " + e.getMessage(), e);
+                }
+            });
+        } else if (needFrontend) {
             String frontendInstruction = "You are Michelangelo (Frontend Specialist), specialized in Liferay React Custom Element Client Extensions and Page Fragments.\n" +
                 "Follow the generation playbook rules below:\n\n" + generationPlaybook + "\n\n" +
                 "### STRICT FRONTEND RULES:\n" +
@@ -282,6 +333,13 @@ public class AgentOrchestrator {
         }
         if (frontendFuture != null) {
             parseGeneratedFiles(frontendFuture.join(), plan.generatedFiles);
+        }
+
+        // The theme client extension is built without AI from the theme's own files (it replaces any the coders wrote)
+        if (analysis.theme != null) {
+            String themeDir = ThemeGenerator.slug(analysis.theme.themeId);
+            plan.generatedFiles.keySet().removeIf(p -> p.startsWith("client-extensions/" + themeDir + "/"));
+            ThemeGenerator.generate(analysis.theme, plan);
         }
 
         return plan;

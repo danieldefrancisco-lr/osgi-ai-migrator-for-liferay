@@ -1,0 +1,18 @@
+## Modernization Blueprint: acme-theme
+
+### 1. Theme client extension
+- Written by the migrator: `client-extensions/acme-theme` (theme CSS, 1 Style Book token, logo, favicon, sticky.js).
+
+### 2. Fragments (collection `acme-theme-fragments`)
+- `acme-theme-header`: the `<header class="acme-header" id="banner">` of portal_normal.ftl.
+  - Editable logo image and link, editable site name.
+  - Search area shown when the configuration field `showHeaderSearch` (from the setting `show-header-search`) is on, with a drop zone for the Search Bar widget.
+  - Drop zone for the Menu Display widget (replaces navigation.ftl).
+  - `enableStickyHeader` (setting `enable-sticky-header`) toggles the `acme-sticky` class on scroll.
+- `acme-theme-footer`: the `<footer class="acme-footer">` with an editable text.
+
+### 3. Master page
+- Header fragment, page drop zone, footer fragment; theme CSS `Acme Theme CSS`.
+
+### API CONTRACT
+- No Liferay Objects.

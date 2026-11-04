@@ -84,7 +84,7 @@ public class CharacterizationTest {
 
     @Test
     public void acmeTheme() throws Exception {
-        run("acme-theme", "maven-workspace", "themes/acme-theme", null, false);
+        run("acme-theme", "maven-workspace", "themes/acme-theme", null, false, "acme-theme");
     }
 
     @Test

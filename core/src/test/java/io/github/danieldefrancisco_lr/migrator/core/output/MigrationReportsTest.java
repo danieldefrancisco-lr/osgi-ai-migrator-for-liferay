@@ -143,6 +143,29 @@ class MigrationReportsTest {
     }
 
     @Test
+    void flagsInvalidFragmentConfigurationAndClassicFreeMarker() {
+        MigrationPlan plan = file("fragments/t-fragments/t-header/fragment.json",
+            "{\"configurationPath\": \"configuration.json\", \"htmlPath\": \"index.html\", \"jsPath\": \"index.js\", \"name\": \"Header\", \"type\": \"component\"}");
+        plan.generatedFiles.put("fragments/t-fragments/t-header/configuration.json",
+            "{\"fieldSets\": [{\"fields\": [{\"dataType\": \"bool\", \"name\": \"showSearch\", \"type\": \"checkbox\"}]}]}");
+        plan.generatedFiles.put("fragments/t-fragments/t-header/index.html", "<header><#if show_header_search><@liferay.search_bar /></#if></header>");
+
+        String report = report(plan);
+
+        assertTrue(report.contains("configuration.json has \"dataType\": \"bool\"; Liferay only accepts string, int or double"), report);
+        assertTrue(report.contains("index.html still has classic theme FreeMarker ('<#if')"), report);
+        assertTrue(report.contains("names jsPath 'index.js', which was not generated"), report);
+
+        plan.generatedFiles.put("fragments/t-fragments/t-header/index.html",
+            "<header>[#if configuration.showSearch]<lfr-drop-zone data-lfr-drop-zone-id=\"search\"></lfr-drop-zone>[/#if]" +
+            "<lfr-drop-zone></lfr-drop-zone><div class=\"lang[#if !configuration.x] d-none[/#if]\"><lfr-drop-zone data-lfr-drop-zone-id=\"language\"></lfr-drop-zone></div></header>");
+        report = report(plan);
+        assertTrue(report.contains("index.html has 1 drop zone(s) without data-lfr-drop-zone-id"), report);
+        assertTrue(report.contains("index.html puts drop zone 'search' inside [#if]"), report);
+        assertTrue(!report.contains("'language' inside"), report);
+    }
+
+    @Test
     void flagsStandaloneObjectActionFiles() {
         String report = report(file("client-extensions/t-object/batch/01-03-ticket-actions.batch-engine-data.json",
             "{\"configuration\": {\"className\": \"com.liferay.object.admin.rest.dto.v1_0.ObjectAction\"}, \"items\": []}"));

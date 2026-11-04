@@ -1,5 +1,12 @@
 <?xml version="1.0"?>
 <look-and-feel>
 	<compatibility><version>7.4.0+</version></compatibility>
-	<theme id="acme" name="Acme Theme" />
+	<theme id="acme" name="Acme Theme">
+		<template-extension>ftl</template-extension>
+		<settings>
+			<setting configurable="false" key="color-palette" value="primary,secondary"/>
+			<setting configurable="true" key="show-header-search" type="checkbox" value="true"/>
+			<setting configurable="true" key="enable-sticky-header" type="checkbox" value="false"/>
+		</settings>
+	</theme>
 </look-and-feel>

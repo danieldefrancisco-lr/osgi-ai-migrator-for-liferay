@@ -1,0 +1,24 @@
+{
+	"frontendTokenCategories": [
+		{
+			"frontendTokenSets": [
+				{
+					"frontendTokens": [
+						{
+							"defaultValue": "#222",
+							"editorType": "ColorPicker",
+							"label": "acme-header-bg",
+							"mappings": [{"type": "cssVariable", "value": "acme-header-bg"}],
+							"name": "acmeHeaderBg",
+							"type": "String"
+						}
+					],
+					"label": "header",
+					"name": "header"
+				}
+			],
+			"label": "colors",
+			"name": "colors"
+		}
+	]
+}

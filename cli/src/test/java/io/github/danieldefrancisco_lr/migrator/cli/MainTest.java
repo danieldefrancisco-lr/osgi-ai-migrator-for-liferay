@@ -146,6 +146,32 @@ public class MainTest {
     }
 
     @Test
+    public void appliesAThemeWarWithoutAPlanOrGemini() throws Exception {
+        Path theme = Golden.TESTDATA.resolve("fixtures/maven-workspace/themes/acme-theme/src/main/webapp");
+        Path war = tmp.resolve("acme-theme.war");
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(war));
+             Stream<Path> files = Files.walk(theme)) {
+            for (Path p : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
+                zip.putNextEntry(new java.util.zip.ZipEntry(theme.relativize(p).toString().replace('\\', '/')));
+                Files.copy(p, zip);
+                zip.closeEntry();
+            }
+        }
+
+        assertEquals(2, run("apply", war.toString()), "a .war needs --workspace");
+        assertEquals(0, run("apply", war.toString(), "--workspace", workspace.toString()), err.toString());
+
+        Path cx = workspace.resolve("client-extensions/acme-theme");
+        assertTrue(Files.readString(cx.resolve("client-extension.yaml")).contains("type: themeCSS"));
+        assertTrue(Files.exists(cx.resolve("src/css/_custom.scss")));
+        assertTrue(Files.exists(cx.resolve("src/css/components/_breadcrumb.scss")), "base partials the theme imports are copied");
+        assertTrue(!Files.exists(cx.resolve("src/css/components/_unused.scss")), "base partials it does not import are not");
+        assertTrue(!Files.exists(cx.resolve("src/css/clay")), "Clay comes from the design pack");
+        assertEquals(Files.size(theme.resolve("images/logo.png")), Files.size(cx.resolve("assets/images/logo.png")));
+        assertEquals(0, run("verify", workspace.toString(), "--only", "acme-theme"), stdout());
+    }
+
+    @Test
     public void knowledgeExportsThePlaybooksOfThisVersion() throws Exception {
         Path dir = tmp.resolve("knowledge");
         assertEquals(0, run("knowledge", dir.toString()), err.toString());

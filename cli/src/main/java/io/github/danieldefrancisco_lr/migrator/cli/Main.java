@@ -11,6 +11,7 @@ import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyze
 import io.github.danieldefrancisco_lr.migrator.core.output.ArtifactWriter;
 import io.github.danieldefrancisco_lr.migrator.core.output.MigrationReports;
 import io.github.danieldefrancisco_lr.migrator.core.output.WorkspaceFiles;
+import io.github.danieldefrancisco_lr.migrator.core.output.ThemeGenerator;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -36,6 +37,7 @@ public class Main {
         "  analyze <module-dir>               Analyze a legacy module (Donatello) and print the report\n" +
         "  migrate <module-dir>               Run the 4-agent pipeline with Gemini and print the plan and checks\n" +
         "  apply <module-dir> --plan <file>   Write a plan saved with 'migrate --save-plan' into the Liferay workspace\n" +
+        "                                     (a theme, as a folder or a .war, needs no plan: its client extension is built without AI)\n" +
         "  config                             Show the Gemini settings in effect and where they come from\n" +
         "  verify <workspace-dir>             Run Raphael's checks on the client extensions and fragments of a Liferay workspace\n" +
         "                                     (exit code 3 when there are warnings); --only <cx,cx> reports only those client extensions\n" +
@@ -136,6 +138,17 @@ public class Main {
             }
 
             File moduleDir = new File(positional.get(1)).getAbsoluteFile();
+            if (moduleDir.isFile() && moduleDir.getName().endsWith(".war")) {
+                // A deployed theme WAR: analyze an extracted copy (the theme's files are copied from it on apply)
+                if (!command.equals("analyze") && !options.containsKey("--workspace")) {
+                    return usageError(err, "A .war is not inside a Liferay workspace: pass --workspace <dir>");
+                }
+                File extracted = Path.of(System.getProperty("user.home"), ".osgi-ai-migrator", "extracted",
+                    moduleDir.getName().substring(0, moduleDir.getName().length() - 4)).toFile();
+                WarFiles.extract(moduleDir.toPath(), extracted.toPath());
+                err.println("Extracted " + moduleDir.getName() + " to " + extracted);
+                moduleDir = extracted;
+            }
             if (!moduleDir.isDirectory()) {
                 err.println("Error: module directory not found: " + moduleDir);
                 return 1;
@@ -158,8 +171,8 @@ public class Main {
                 return 0;
             }
 
-            if (command.equals("apply") && !options.containsKey("--plan")) {
-                return usageError(err, "apply needs --plan <file>");
+            if (command.equals("apply") && !options.containsKey("--plan") && analysis.theme == null) {
+                return usageError(err, "apply needs --plan <file> (only a theme can be applied without one)");
             }
             if (command.equals("apply") && options.containsKey("--save-plan")) {
                 return usageError(err, "--save-plan is for migrate");
@@ -167,7 +180,14 @@ public class Main {
 
             MigrationPlan plan;
             if (command.equals("apply")) {
-                plan = PlanFile.read(Path.of(options.get("--plan")));
+                plan = options.containsKey("--plan") ? PlanFile.read(Path.of(options.get("--plan"))) : new MigrationPlan();
+                if (analysis.theme != null) {
+                    // The theme client extension needs no AI: build it from the theme's files on this machine
+                    String themeDir = "client-extensions/" + ThemeGenerator.slug(analysis.theme.themeId) + "/";
+                    plan.generatedFiles.keySet().removeIf(p -> p.startsWith(themeDir));
+                    plan.copiedFiles.keySet().removeIf(p -> p.startsWith(themeDir));
+                    ThemeGenerator.generate(analysis.theme, plan);
+                }
             } else {
                 err.println("Leonardo and Michelangelo: generating with Gemini (" + settings.get(GeminiSettings.P_AUTH_TYPE) +
                     "), this can take a minute ...");
@@ -301,6 +321,7 @@ public class Main {
         m.put("schedulers", a.detectedSchedulers);
         m.put("notifications", a.detectedNotifications);
         m.put("customLogic", a.detectedCustomLogic);
+        m.put("theme", a.theme == null ? null : a.theme.summary());
         List<String> renames = new ArrayList<>();
         for (String line : AgentOrchestrator.reservedColumnRenames(a).split("\n")) {
             if (!line.isBlank()) {

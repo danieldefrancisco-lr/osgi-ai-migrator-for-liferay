@@ -2,15 +2,12 @@ Success
 Raphael (Verifier): Successfully written modern artifacts to:
 ${ROOT}/maven-workspace
 
-Files created: 8
+Files created: 11
 
 Fragment Collections zipped and ready to import:
-  -> fragments/library-fragments.zip
   -> fragments/acme-theme-fragments.zip
 
 Migration History & Action Checklist saved to:
   -> docs/migrations/acme-theme-migration-report.md
-  -> client-extensions/library-web-custom-element/MIGRATION.md
-  -> client-extensions/acme-theme-custom-element/MIGRATION.md
-  -> client-extensions/acme-theme-object/MIGRATION.md
+  -> client-extensions/acme-theme/MIGRATION.md
 

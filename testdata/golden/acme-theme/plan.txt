@@ -1,40 +1,139 @@
 architectureBlueprint:
-## Modernization Blueprint
+## Modernization Blueprint: acme-theme
 
-1. Liferay Objects: Book (title, format picklist), Author (name).
-2. Batch Client Extension: book-object.
-3. Frontend: library-web-custom-element (React), library-fragments collection.
-4. BookModelListener -> native Object Action "On After Add".
+### 1. Theme client extension
+- Written by the migrator: `client-extensions/acme-theme` (theme CSS, 1 Style Book token, logo, favicon, sticky.js).
+
+### 2. Fragments (collection `acme-theme-fragments`)
+- `acme-theme-header`: the `<header class="acme-header" id="banner">` of portal_normal.ftl.
+  - Editable logo image and link, editable site name.
+  - Search area shown when the configuration field `showHeaderSearch` (from the setting `show-header-search`) is on, with a drop zone for the Search Bar widget.
+  - Drop zone for the Menu Display widget (replaces navigation.ftl).
+  - `enableStickyHeader` (setting `enable-sticky-header`) toggles the `acme-sticky` class on scroll.
+- `acme-theme-footer`: the `<footer class="acme-footer">` with an editable text.
+
+### 3. Master page
+- Header fragment, page drop zone, footer fragment; theme CSS `Acme Theme CSS`.
+
+### API CONTRACT
+- No Liferay Objects.
 
 generatedFiles:
---- client-extensions/library-web-custom-element/package.json ---
+--- fragments/acme-theme-fragments/acme-theme-header/index.js ---
+if (configuration.enableStickyHeader) {
+	window.addEventListener('scroll', function () {
+		document.body.classList.toggle('acme-sticky', window.scrollY > 80);
+	});
+}
+--- fragments/acme-theme-fragments/collection.json ---
 {
-    "name": "library-web-custom-element",
-    "scripts": {"build": "react-scripts build", "start": "react-scripts start"}
+	"description": "Header and footer of the Acme Theme theme",
+	"fragmentCollectionKey": "acme-theme-fragments",
+	"name": "Acme Theme"
 }
---- fragments/library-fragments/collection.json ---
-{"name": "Library Fragments"}
---- fragments/library-fragments/book-card/fragment.json ---
-{"fragmentEntryKey": "book-card", "htmlPath": "index.html", "name": "Book Card", "type": "component"}
---- styles/theme.css ---
-.book-card { color: red; }
---- src/App.js ---
-export default function App() {
-    return <div className="container">Library</div>;
+--- fragments/acme-theme-fragments/acme-theme-header/configuration.json ---
+{
+	"fieldSets": [
+		{
+			"fields": [
+				{
+					"defaultValue": true,
+					"label": "show-header-search",
+					"name": "showHeaderSearch",
+					"type": "checkbox"
+				},
+				{
+					"defaultValue": false,
+					"label": "enable-sticky-header",
+					"name": "enableStickyHeader",
+					"type": "checkbox"
+				}
+			]
+		}
+	]
 }
---- book-card-v2/fragment.json ---
-{"fragmentEntryKey": "book-card-v2", "name": "Book Card V2"}
---- fragments/library-fragments/book-card/index.html ---
-<div class="book-card">${title}</div>
---- client-extensions/library-web-custom-element/client-extension.yaml ---
+--- fragments/acme-theme-fragments/acme-theme-footer/fragment.json ---
+{
+	"cssPath": "index.css",
+	"htmlPath": "index.html",
+	"name": "Acme Theme Footer",
+	"type": "component"
+}
+--- fragments/acme-theme-fragments/acme-theme-footer/index.css ---
+
+--- client-extensions/acme-theme/package.json ---
+{
+	"liferayDesignPack": {
+		"baseTheme": "styled"
+	},
+	"main": "package.json",
+	"name": "acme-theme",
+	"private": true,
+	"version": "1.0.0"
+}
+
+--- fragments/acme-theme-fragments/acme-theme-header/fragment.json ---
+{
+	"configurationPath": "configuration.json",
+	"cssPath": "index.css",
+	"fragmentEntryKey": "acme-theme-header",
+	"htmlPath": "index.html",
+	"jsPath": "index.js",
+	"name": "Acme Theme Header",
+	"type": "component"
+}
+--- fragments/acme-theme-fragments/acme-theme-footer/index.html ---
+<footer class="acme-footer" id="footer">
+	<p data-lfr-editable-id="footer-text" data-lfr-editable-type="text">Powered by Acme</p>
+</footer>
+--- fragments/acme-theme-fragments/acme-theme-header/index.html ---
+<header class="acme-header" id="banner">
+	<a class="logo" data-lfr-editable-id="home-link" data-lfr-editable-type="link" href="/">
+		<img alt="Logo" data-lfr-editable-id="logo" data-lfr-editable-type="image" src="" />
+	</a>
+	<span class="site-name" data-lfr-editable-id="site-name" data-lfr-editable-type="text">Acme</span>
+	<div class="acme-search[#if !configuration.showHeaderSearch] d-none[/#if]">
+		<lfr-drop-zone data-lfr-drop-zone-id="search-bar"></lfr-drop-zone>
+	</div>
+	<nav>
+		<lfr-drop-zone data-lfr-drop-zone-id="navigation"></lfr-drop-zone>
+	</nav>
+</header>
+--- fragments/acme-theme-fragments/acme-theme-header/index.css ---
+
+--- client-extensions/acme-theme/client-extension.yaml ---
 assemble:
-    - from: build/static
+    - from: assets
       into: static
-library-web-custom-element:
-    cssURLs:
-        - css/main.*.css
-    htmlElementName: library-web-custom-element
-    name: Library
-    type: customElement
-    urls:
-        - js/main.*.js
+
+acme-theme-css:
+    clayURL: css/clay.css
+    frontendTokenDefinitionJSON: src/frontend-token-definition.json
+    mainURL: css/main.css
+    name: Acme Theme CSS
+    type: themeCSS
+
+acme-theme-favicon:
+    name: Acme Theme Favicon
+    type: themeFavicon
+    url: images/favicon.ico
+
+acme-theme-sticky-js:
+    name: Acme Theme sticky.js
+    scriptLocation: bottom
+    type: globalJS
+    url: js/sticky.js
+
+copiedFiles:
+client-extensions/acme-theme/assets/css/acme/fonts/acme-sans.woff2 <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/fonts/acme-sans.woff2
+client-extensions/acme-theme/assets/images/favicon.ico <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/images/favicon.ico
+client-extensions/acme-theme/assets/images/logo.png <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/images/logo.png
+client-extensions/acme-theme/assets/js/sticky.js <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/js/sticky.js
+client-extensions/acme-theme/src/css/_clay_variables.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/_clay_variables.scss
+client-extensions/acme-theme/src/css/_custom.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/_custom.scss
+client-extensions/acme-theme/src/css/acme/_header.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_header.scss
+client-extensions/acme-theme/src/css/acme/_index.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_index.scss
+client-extensions/acme-theme/src/css/acme/_variables.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/_variables.scss
+client-extensions/acme-theme/src/css/acme/fonts/acme-sans.woff2 <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/acme/fonts/acme-sans.woff2
+client-extensions/acme-theme/src/css/components/_breadcrumb.scss <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/css/components/_breadcrumb.scss
+client-extensions/acme-theme/src/frontend-token-definition.json <= ${ROOT}/maven-workspace/themes/acme-theme/src/main/webapp/WEB-INF/frontend-token-definition.json

@@ -22,7 +22,17 @@ Liferay Workspace Root: ${ROOT}/maven-workspace
 
 4. THEMES & LOOK AND FEEL:
    - Has Theme Artifacts: YES
+       * Theme Acme Theme (acme)
+       * 9 SCSS sources, 5 of the theme's own: css/_clay_variables.scss, css/_custom.scss, css/acme/_header.scss, css/acme/_index.scss, css/acme/_variables.scss
+       * 1 Style Book tokens in WEB-INF/frontend-token-definition.json
+       * 2 images and fonts of the theme, custom favicon (+ 0 base theme images, copied only if its SCSS uses them)
+       * JavaScript with code: js/sticky.js
+       * Templates: templates/navigation.ftl, templates/portal_normal.ftl
+       * Configurable settings: show-header-search, enable-sticky-header
+       * Not migrated: images/clay/icons.svg: the Clay icon set of the base theme (registering it as a spritemap would replace the current icons)
+       * Not migrated: js/main.js: the empty main.js of the theme generator
 
-5. EXTRACTED SOURCE FILES (2 files):
+5. EXTRACTED SOURCE FILES (3 files):
    - theme:liferay-look-and-feel.xml
+   - theme:navigation.ftl
    - theme:portal_normal.ftl

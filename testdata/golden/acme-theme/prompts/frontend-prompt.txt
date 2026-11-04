@@ -1,13 +1,25 @@
-Based on Leonardo's blueprint below, generate the complete, ready-to-deploy React Custom Element files.
+Based on Leonardo's blueprint below, generate the fragment collection that replaces the theme templates.
 Output each file clearly delimited with '=== FILE: [relative/path] ===' and '=== END FILE ==='.
 
 Blueprint:
-## Modernization Blueprint
+## Modernization Blueprint: acme-theme
 
-1. Liferay Objects: Book (title, format picklist), Author (name).
-2. Batch Client Extension: book-object.
-3. Frontend: library-web-custom-element (React), library-fragments collection.
-4. BookModelListener -> native Object Action "On After Add".
+### 1. Theme client extension
+- Written by the migrator: `client-extensions/acme-theme` (theme CSS, 1 Style Book token, logo, favicon, sticky.js).
+
+### 2. Fragments (collection `acme-theme-fragments`)
+- `acme-theme-header`: the `<header class="acme-header" id="banner">` of portal_normal.ftl.
+  - Editable logo image and link, editable site name.
+  - Search area shown when the configuration field `showHeaderSearch` (from the setting `show-header-search`) is on, with a drop zone for the Search Bar widget.
+  - Drop zone for the Menu Display widget (replaces navigation.ftl).
+  - `enableStickyHeader` (setting `enable-sticky-header`) toggles the `acme-sticky` class on scroll.
+- `acme-theme-footer`: the `<footer class="acme-footer">` with an editable text.
+
+### 3. Master page
+- Header fragment, page drop zone, footer fragment; theme CSS `Acme Theme CSS`.
+
+### API CONTRACT
+- No Liferay Objects.
 
 
 Legacy Context:
@@ -20,21 +32,66 @@ Listeners Detected:
 Schedulers Detected: 
 Notifications Detected: 
 
+THEME INVENTORY (the migrator writes the theme client extension 'acme-theme' itself, without AI: theme CSS from the theme's SCSS, its Style Book tokens, images and JavaScript. Do NOT generate it;
+plan and generate only the header/footer fragments and master page that replace its FreeMarker templates and settings):
+- Theme Acme Theme (acme)
+- 9 SCSS sources, 5 of the theme's own: css/_clay_variables.scss, css/_custom.scss, css/acme/_header.scss, css/acme/_index.scss, css/acme/_variables.scss
+- 1 Style Book tokens in WEB-INF/frontend-token-definition.json
+- 2 images and fonts of the theme, custom favicon (+ 0 base theme images, copied only if its SCSS uses them)
+- JavaScript with code: js/sticky.js
+- Templates: templates/navigation.ftl, templates/portal_normal.ftl
+- Configurable settings: show-header-search, enable-sticky-header
+- Not migrated: images/clay/icons.svg: the Clay icon set of the base theme (registering it as a spritemap would replace the current icons)
+- Not migrated: js/main.js: the empty main.js of the theme generator
+
 --- File: theme:liferay-look-and-feel.xml ---
 <?xml version="1.0"?>
 <look-and-feel>
 	<compatibility><version>7.4.0+</version></compatibility>
-	<theme id="acme" name="Acme Theme" />
+	<theme id="acme" name="Acme Theme">
+		<template-extension>ftl</template-extension>
+		<settings>
+			<setting configurable="false" key="color-palette" value="primary,secondary"/>
+			<setting configurable="true" key="show-header-search" type="checkbox" value="true"/>
+			<setting configurable="true" key="enable-sticky-header" type="checkbox" value="false"/>
+		</settings>
+	</theme>
 </look-and-feel>
+
+
+--- File: theme:navigation.ftl ---
+<nav>${nav_items}</nav>
 
 
 --- File: theme:portal_normal.ftl ---
 <!DOCTYPE html>
-<html class="${root_css_class}">
-<head><title>${the_title}</title></head>
-<body>
-<#include "${full_templates_path}/navigation.ftl" />
-${body_bottom_include}
+
+<#include init />
+
+<html class="${root_css_class}" dir="<@liferay.language key="lang.dir" />" lang="${w3c_language_id}">
+<head>
+	<title>${the_title} - ${company_name}</title>
+	<@liferay_util["include"] page=top_head_include />
+</head>
+<body class="${css_class}">
+<@liferay.control_menu />
+<div id="wrapper">
+	<header class="acme-header" id="banner">
+		<a class="logo" href="${site_default_url}"><img alt="${logo_description}" src="${site_logo}" /></a>
+		<span class="site-name">${site_name}</span>
+		<#if getterUtil.getBoolean(themeDisplay.getThemeSetting("show-header-search"))>
+			<div class="acme-search"><@liferay.search_bar /></div>
+		</#if>
+		<#include "${full_templates_path}/navigation.ftl" />
+	</header>
+	<section id="content">
+		<@liferay_util["include"] page=content_include />
+	</section>
+	<footer class="acme-footer" id="footer">
+		<p><@liferay.language key="powered-by" /> Acme</p>
+	</footer>
+</div>
+<@liferay_util["include"] page=body_bottom_include />
 </body>
 </html>
 

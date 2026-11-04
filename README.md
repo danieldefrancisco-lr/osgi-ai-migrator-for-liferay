@@ -7,7 +7,7 @@ Client Extensions**. One migration engine, available where you work:
 | Product | What it is | Get it |
 |---|---|---|
 | **Eclipse / Liferay Developer Studio plugin** | Migration wizard on the module's context menu | [Eclipse Marketplace](https://marketplace.eclipse.org/content/osgi-ai-migrator-liferay) or the [update site](#eclipse-and-liferay-developer-studio) |
-| **IntelliJ IDEA plugin** | The same wizard in every JetBrains IDE (2024.3+) | [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay) (in review) or the zip in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
+| **IntelliJ IDEA plugin** | The same wizard in every JetBrains IDE (2024.3+) | [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay) or the zip in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
 | **VS Code extension** | The same wizard in VS Code | [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=DanieldeFrancisco.osgi-ai-migrator) |
 | **CLI** | `analyze`, `migrate`, `apply`, plus `verify` and `knowledge`, which need no AI | `osgi-ai-migrator-cli-X.jar` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
 | **Agent skill** | Lets a coding agent (Claude Code, Gemini CLI, Codex...) do the migration, verify and deploy it | `osgi-ai-migrator-skill-X.zip` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) (from 3.4.0) |
@@ -78,9 +78,9 @@ configured in **Window → Preferences → OSGi AI Migrator for Liferay** (the A
 The `intellij/` plugin works in every JetBrains IDE from 2024.3 on. Right-click a module (or one of its
 folders) in the Project view and choose **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...**;
 Gemini is configured in **Settings → Tools → OSGi AI Migrator for Liferay** (the API key goes to the IDE's
-password safe). Install it from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay)
-once its review is done; until then, download `osgi-ai-migrator-intellij-X.zip` from the releases and use
-**Settings → Plugins → ⚙ → Install Plugin from Disk...**.
+password safe). Install it from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay):
+**Settings → Plugins → Marketplace**, search for "OSGi AI Migrator". Each GitHub Release also has
+`osgi-ai-migrator-intellij-X.zip`, for **Settings → Plugins → ⚙ → Install Plugin from Disk...**.
 
 To build it, install the core with Maven first, then use Gradle:
 

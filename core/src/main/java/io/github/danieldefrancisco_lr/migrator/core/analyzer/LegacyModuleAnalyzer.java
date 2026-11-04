@@ -58,6 +58,8 @@ public class LegacyModuleAnalyzer {
         /** Methods of listeners, wrappers and *LocalServiceImpl classes whose logic must be ported, with their target trigger. */
         public List<String> detectedCustomLogic = new ArrayList<>();
         public Map<String, String> rawSourceExtracts = new HashMap<>();
+        /** The theme's files, when the module is a theme (WAR or theme project); null otherwise. */
+        public ThemeInventory theme;
     }
 
     public static ModuleAnalysisResult analyze(ModuleSource source) throws Exception {
@@ -69,10 +71,16 @@ public class LegacyModuleAnalyzer {
         detectLiferayWorkspaceAndVersion(source, result);
 
         // 2. Scan Module Resources
+        List<String> allPaths = new ArrayList<>();
+        String[] lookAndFeel = new String[1];
         source.visitFiles(new FileVisitor() {
             @Override
             public void visit(ModuleFile file) throws Exception {
                 String fileName = file.getName();
+                allPaths.add(file.getProjectRelativePath());
+                if (file.getProjectRelativePath().endsWith("WEB-INF/liferay-look-and-feel.xml") && lookAndFeel[0] == null) {
+                    lookAndFeel[0] = file.getProjectRelativePath();
+                }
 
                 // Detect Service Builder
                 if ("service.xml".equalsIgnoreCase(fileName)) {
@@ -133,6 +141,12 @@ public class LegacyModuleAnalyzer {
                     result.hasTheme = true;
                     result.rawSourceExtracts.put("theme:" + fileName, readFileContent(file));
                 }
+                // The theme's other templates (navigation, init_custom...) become fragments too; init.ftl is the
+                // generated variables file of every theme and portlet.ftl the portlet decorator, which fragments do not need
+                else if (fileName.endsWith(".ftl") && file.getProjectRelativePath().contains("templates/") &&
+                         !fileName.equals("init.ftl") && !fileName.equals("portlet.ftl") && !fileName.equals("portal_pop_up.ftl")) {
+                    result.rawSourceExtracts.put("theme:" + fileName, readFileContent(file));
+                }
                 // Inspect module's build.gradle for version clues
                 else if ("build.gradle".equalsIgnoreCase(fileName) && result.sourceLiferayVersion == null) {
                     String content = readFileContent(file);
@@ -143,6 +157,11 @@ public class LegacyModuleAnalyzer {
 
         if (result.sourceLiferayVersion == null) {
             result.sourceLiferayVersion = "Liferay 7.x (Generic)";
+        }
+
+        if (lookAndFeel[0] != null) {
+            File moduleDir = source.getProjectLocation() != null ? source.getProjectLocation() : source.getLocation();
+            result.theme = ThemeInventory.build(moduleDir, lookAndFeel[0], allPaths);
         }
 
         return result;

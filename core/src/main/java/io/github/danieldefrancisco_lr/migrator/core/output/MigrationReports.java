@@ -2,6 +2,7 @@ package io.github.danieldefrancisco_lr.migrator.core.output;
 
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
+import io.github.danieldefrancisco_lr.migrator.core.analyzer.ThemeInventory;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -30,6 +31,9 @@ public class MigrationReports {
     /** Imports of Liferay platform APIs (a project's own com.liferay.* packages are not matched). */
     private static final Pattern LIFERAY_IMPORT = Pattern.compile(
         "(?m)^import\\s+(com\\.liferay\\.(?:portal|object|headless|notification|petra|batch|oauth2|client\\.extension|list\\.type)\\.[\\w.]+);");
+    /** Classic theme template syntax that fragments do not understand: <#if>, <@liferay...>, ${theme variables}. */
+    private static final Pattern CLASSIC_FREEMARKER = Pattern.compile(
+        "<#\\w+|<@\\w+|\\$\\{(?:theme_display|themeDisplay|site_name|logo_url|site_logo|nav_items|root_css_class|full_templates_path|w3c_language_id)\\b");
     /** The business types of Liferay Objects fields. */
     private static final List<String> BUSINESS_TYPES = List.of(
         "Aggregation", "Attachment", "AutoIncrement", "Boolean", "Date", "DateTime", "Decimal", "Encrypted", "Formula",
@@ -66,7 +70,13 @@ public class MigrationReports {
         sb.append("\n");
 
         sb.append("4. THEMES & LOOK AND FEEL:\n");
-        sb.append("   - Has Theme Artifacts: ").append(analysisResult.hasTheme ? "YES" : "NO").append("\n\n");
+        sb.append("   - Has Theme Artifacts: ").append(analysisResult.hasTheme ? "YES" : "NO").append("\n");
+        if (analysisResult.theme != null) {
+            for (String line : analysisResult.theme.summary()) {
+                sb.append("       * ").append(line).append("\n");
+            }
+        }
+        sb.append("\n");
 
         sb.append("5. EXTRACTED SOURCE FILES (").append(analysisResult.rawSourceExtracts.size()).append(" files):\n");
         for (String k : analysisResult.rawSourceExtracts.keySet()) {
@@ -161,7 +171,12 @@ public class MigrationReports {
                 checkApiPaths(path, content, warnings);
             }
 
-            if (path.endsWith("_custom.scss") && Pattern.compile("(?m)^(?:body|html)\\b[^{]*\\{").matcher(content).find()) {
+            if (path.startsWith("fragments/")) {
+                checkFragment(path, content, plan, migration, warnings);
+            }
+
+            // Only for SCSS the coders wrote: a legacy theme copied as it is was designed for the whole page
+            if (migration && path.endsWith("_custom.scss") && Pattern.compile("(?m)^(?:body|html)\\b[^{]*\\{").matcher(content).find()) {
                 warnings.add(path + " styles body/html at the top level, which also restyles Liferay's menus; scope the rules under #wrapper.");
             }
         }
@@ -582,6 +597,121 @@ public class MigrationReports {
         }
     }
 
+    /** Fragments: the files fragment.json names exist, and no classic theme FreeMarker or AUI is left in them. */
+    private static void checkFragment(String path, String content, MigrationPlan plan, boolean migration, List<String> warnings) {
+        String dir = path.substring(0, path.lastIndexOf('/') + 1);
+        if (path.endsWith("/fragment.json")) {
+            Matcher ref = Pattern.compile("\"(htmlPath|cssPath|jsPath|configurationPath)\"\\s*:\\s*\"([^\"]+)\"").matcher(content);
+            while (ref.find()) {
+                if (!plan.generatedFiles.containsKey(dir + ref.group(2))) {
+                    warnings.add(path + " names " + ref.group(1) + " '" + ref.group(2) + "', which was not generated; the fragment import fails.");
+                }
+            }
+            if (!content.contains("\"type\"")) {
+                warnings.add(path + " has no \"type\" (\"component\" for page fragments).");
+            }
+            // The migrator adds the keys when it writes the files; files edited by hand or by an agent must have them
+            if (!migration && !content.contains("\"fragmentEntryKey\"")) {
+                warnings.add(path + " has no \"fragmentEntryKey\" (the fragment folder name); re-importing would duplicate the fragment.");
+            }
+        } else if (path.endsWith("/collection.json")) {
+            if (!migration && !content.contains("\"fragmentCollectionKey\"")) {
+                warnings.add(path + " has no \"fragmentCollectionKey\" (the collection folder name); re-importing would duplicate the collection.");
+            }
+        } else if (path.endsWith(".html")) {
+            checkDropZones(path, content, warnings);
+            Matcher classic = CLASSIC_FREEMARKER.matcher(content);
+            if (classic.find()) {
+                warnings.add(path + " still has classic theme FreeMarker ('" + classic.group() + "'); fragments use [#if ...] with square brackets, " +
+                    "editable fields and drop zones instead of theme variables and taglibs (generation playbook 9.2).");
+            }
+        } else if (path.endsWith("/configuration.json")) {
+            Matcher dataType = Pattern.compile("\"dataType\"\\s*:\\s*\"(\\w+)\"").matcher(content);
+            while (dataType.find()) {
+                if (!List.of("string", "int", "double").contains(dataType.group(1))) {
+                    warnings.add(path + " has \"dataType\": \"" + dataType.group(1) + "\"; Liferay only accepts string, int or double " +
+                        "(the import fails with 'not a valid enum value'). Checkbox fields have no dataType.");
+                }
+            }
+        } else if (path.endsWith(".js") && (content.contains("AUI(") || content.contains("A.one("))) {
+            warnings.add(path + " uses AUI, which fragments do not load; use plain DOM APIs with fragmentElement.");
+        }
+    }
+
+    /** Drop zones need a stable id and must not depend on [#if]: Liferay otherwise matches them by position (validated). */
+    private static void checkDropZones(String path, String content, List<String> warnings) {
+        Matcher m = Pattern.compile("<lfr-drop-zone\\b[^>]*>|\\[#if\\b|\\[/#if\\]|data-lfr-editable-id=\"([^\"]+)\"").matcher(content);
+        int depth = 0;
+        int withoutId = 0;
+        List<String> conditional = new ArrayList<>();
+        while (m.find()) {
+            String token = m.group();
+            if (token.startsWith("[#if")) {
+                depth++;
+            } else if (token.startsWith("[/#if")) {
+                depth = Math.max(0, depth - 1);
+            } else if (token.startsWith("<lfr-drop-zone")) {
+                Matcher id = Pattern.compile("data-lfr-drop-zone-id=\"([^\"]+)\"").matcher(token);
+                if (!id.find()) {
+                    withoutId++;
+                }
+                if (depth > 0) {
+                    conditional.add(id.find(0) ? "drop zone '" + id.group(1) + "'" : "a drop zone");
+                }
+            } else if (depth > 0) {
+                conditional.add("editable '" + m.group(1) + "'");
+            }
+        }
+        if (withoutId > 0) {
+            warnings.add(path + " has " + withoutId + " drop zone(s) without data-lfr-drop-zone-id; Liferay matches them by position, " +
+                "so widgets move to another zone when the markup changes.");
+        }
+        if (!conditional.isEmpty()) {
+            warnings.add(path + " puts " + String.join(", ", conditional) + " inside [#if]; hide the element with a class " +
+                "([#if !configuration.x] d-none[/#if]) instead, or its content moves or is lost when the option changes.");
+        }
+    }
+
+    /** How to deploy and apply the theme client extension, and what still needs a person. */
+    static String themeSection(ThemeInventory theme) {
+        String id = ThemeGenerator.slug(theme.themeId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("## Theme ").append(theme.themeName).append("\n\n");
+        sb.append("The client extension `client-extensions/").append(id).append("` was built without AI from the theme's files:\n\n");
+        for (String line : theme.summary()) {
+            sb.append("- ").append(line).append("\n");
+        }
+        sb.append("\n### Deploy and apply\n\n");
+        sb.append("1. `blade gw :client-extensions:").append(id).append(":build` and copy the zip from `dist/` to Liferay's `deploy/` folder.\n");
+        sb.append("   The workspace compiles `src/css` on top of the \"styled\" design pack: if a SCSS import fails, the theme used a\n");
+        sb.append("   partial of its 7.x base theme that the design pack does not have; copy it from the legacy theme into `src/css`.\n");
+        sb.append("2. Try it on a test page first: **Configure → Design → Theme CSS** → *").append(theme.themeName).append(" CSS*.\n");
+        if (theme.tokenDefinition != null) {
+            sb.append("3. Its ").append(theme.tokenCount).append(" tokens appear in **Design → Style Books** for that theme CSS: create a Style Book to change them.\n");
+        }
+        if (!theme.customJs.isEmpty()) {
+            sb.append("4. Add the JavaScript client extensions (").append(String.join(", ", theme.customJs)).append(") in **Configure → Design → JavaScript**;\n");
+            sb.append("   review them first: AUI and theme-template variables are not available outside a classic theme.\n");
+        }
+        sb.append("\n### Still to do by hand (or with the generated fragments)\n\n");
+        sb.append("- The FreeMarker templates (").append(String.join(", ", theme.templates)).append(") become a master page with header and\n");
+        sb.append("  footer fragments; the theme CSS keeps styling them through the same CSS classes.\n");
+        boolean any = false;
+        for (ThemeInventory.Setting setting : theme.settings) {
+            if (setting.configurable) {
+                if (!any) {
+                    sb.append("- Theme settings that become fragment configuration or master page choices:\n");
+                    any = true;
+                }
+                sb.append("  - `").append(setting.key).append("` (").append(setting.type).append(", default `").append(setting.value).append("`)\n");
+            }
+        }
+        for (String n : theme.notMigrated) {
+            sb.append("- Not migrated: ").append(n).append("\n");
+        }
+        return sb.toString();
+    }
+
     public static String generateMigrationMarkdownReport(ModuleAnalysisResult analysisResult, MigrationPlan currentPlan) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Modernization Report & Action Guide\n\n");
@@ -603,7 +733,13 @@ public class MigrationReports {
         for (String file : currentPlan.generatedFiles.keySet()) {
             sb.append("- `").append(file).append("`\n");
         }
+        if (!currentPlan.copiedFiles.isEmpty()) {
+            sb.append("- ").append(currentPlan.copiedFiles.size()).append(" files copied as they are from the legacy module (SCSS, images, fonts, JavaScript)\n");
+        }
         sb.append("\n---\n\n");
+        if (analysisResult.theme != null) {
+            sb.append(themeSection(analysisResult.theme)).append("\n---\n\n");
+        }
 
         sb.append("## 4. Raphael (The Verifier) - Post-Migration Action Checklist\n\n");
         sb.append(buildRaphaelVerificationReport(analysisResult, currentPlan)).append("\n");

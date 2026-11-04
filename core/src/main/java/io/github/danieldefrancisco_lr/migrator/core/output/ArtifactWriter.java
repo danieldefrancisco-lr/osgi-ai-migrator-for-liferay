@@ -101,8 +101,22 @@ public class ArtifactWriter {
             if (relativePath.endsWith(".batch-engine-data.json")) {
                 fileContent = sanitizeBatchJson(fileContent);
             }
+            if (relativePath.startsWith("fragments/")) {
+                fileContent = withFragmentKey(relativePath, fileContent);
+            }
 
             Files.writeString(targetPath, fileContent);
+        }
+
+        // Files copied as they are from the legacy module (theme images, fonts, SCSS), byte for byte
+        for (Map.Entry<String, String> copy : currentPlan.copiedFiles.entrySet()) {
+            Path targetPath = Paths.get(targetWorkspaceDir.getAbsolutePath(), copy.getKey());
+            Files.createDirectories(targetPath.getParent());
+            Files.copy(Paths.get(copy.getValue()), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            if (copy.getKey().startsWith("client-extensions/")) {
+                String sub = copy.getKey().substring("client-extensions/".length());
+                createdCeDirs.add(sub.substring(0, sub.indexOf('/')));
+            }
         }
 
         // Automatically zip fragment collections for 1-click import into Liferay
@@ -129,6 +143,35 @@ public class ArtifactWriter {
         }
 
         return new WriteResult(moduleSlug, fragmentCollections, createdCeDirs);
+    }
+
+    /**
+     * Liferay identifies imported collections and fragments by fragmentCollectionKey / fragmentEntryKey: without them an
+     * import creates duplicates instead of updating. Adds them from the folder names when the coders left them out.
+     */
+    static String withFragmentKey(String relativePath, String content) {
+        String[] parts = relativePath.split("/");
+        String key;
+        String property;
+        if (parts.length == 3 && parts[2].equals("collection.json")) {
+            property = "fragmentCollectionKey";
+            key = parts[1];
+        } else if (parts.length == 4 && parts[3].equals("fragment.json")) {
+            property = "fragmentEntryKey";
+            key = parts[2];
+        } else {
+            return content;
+        }
+        if (content.contains("\"" + property + "\"")) {
+            return content;
+        }
+        int brace = content.indexOf('{');
+        if (brace < 0) {
+            return content;
+        }
+        String rest = content.substring(brace + 1);
+        String separator = rest.trim().startsWith("}") ? "" : ",";
+        return content.substring(0, brace + 1) + "\n\t\"" + property + "\": \"" + key + "\"" + separator + rest;
     }
 
     private static void zipDirectory(File folderToZip, File zipFile) {
