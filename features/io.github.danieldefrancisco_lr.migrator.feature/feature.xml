@@ -2,7 +2,7 @@
 <feature
       id="io.github.danieldefrancisco_lr.migrator.feature"
       label="OSGi AI Migrator for Liferay"
-      version="3.3.0.qualifier"
+      version="3.4.0.qualifier"
       provider-name="Daniel de Francisco">
 
    <description url="https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay">

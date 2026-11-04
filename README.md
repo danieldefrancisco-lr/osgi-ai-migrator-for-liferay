@@ -10,7 +10,7 @@ Client Extensions**. One migration engine, available where you work:
 | **IntelliJ IDEA plugin** | The same wizard in every JetBrains IDE (2024.3+) | [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay) or the zip in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
 | **VS Code extension** | The same wizard in VS Code | [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=DanieldeFrancisco.osgi-ai-migrator) |
 | **CLI** | `analyze`, `migrate`, `apply`, plus `verify` and `knowledge`, which need no AI | `osgi-ai-migrator-cli-X.jar` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
-| **Agent skill** | Lets a coding agent (Claude Code, Gemini CLI, Codex...) do the migration, verify and deploy it | `osgi-ai-migrator-skill-X.zip` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) (from 3.4.0) |
+| **Agent skill** | Lets a coding agent (Claude Code, Gemini CLI, Codex...) do the migration, verify and deploy it | `osgi-ai-migrator-skill-X.zip` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) (from 3.4.0 on) |
 
 The IDE plugins and the CLI use Google Gemini; the agent skill uses whichever model the coding agent runs. All of
 them share the same analyzer, playbooks and checks, and are released together with one version number.
@@ -303,10 +303,10 @@ publishes to the JetBrains Marketplace, the VS Code Marketplace and Open VSX whe
 upload does not block the release):
 
 1. Set the new version, for example
-   `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=3.4.0-SNAPSHOT`
-   (and `npm version 3.4.0 --no-git-tag-version` in `vscode/` to keep local builds in step).
+   `./mvnw org.eclipse.tycho:tycho-versions-plugin:set-version -DnewVersion=3.5.0-SNAPSHOT`
+   (and `npm version 3.5.0 --no-git-tag-version` in `vscode/` to keep local builds in step).
 2. Commit and push to `main`, and check the build passes.
-3. Tag and push: `git tag v3.4.0 && git push origin v3.4.0`
+3. Tag and push: `git tag v3.5.0 && git push origin v3.5.0`
 
 ## Project layout
 
