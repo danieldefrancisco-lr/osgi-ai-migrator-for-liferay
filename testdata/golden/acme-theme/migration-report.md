@@ -141,28 +141,15 @@ PRE-FLIGHT CHECKS:
 
 POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:
 
-1. DEPLOY CLIENT EXTENSIONS:
-   - Batch Object Client Extensions (deploy BEFORE the frontend to initialize DB & REST APIs):
-   - Frontend Custom Element Client Extensions (deploy AFTER objects are active):
+1. DEPLOY THE THEME CLIENT EXTENSION:
+     blade gw :client-extensions:acme-theme:deploy
 
-2. IMPORT PAGE FRAGMENTS (IF GENERATED):
-   - Locate the pre-zipped archive: 'fragments/<collection-name>.zip'
-   - In Liferay: Navigate to Site Administration -> Design -> Fragments
-   - Click the (...) menu at the top-right -> Import -> upload the .zip file
+2. IMPORT THE FRAGMENTS (IF GENERATED): Site Administration -> Design -> Fragments -> (...) -> Import ->
+   fragments/acme-theme-fragments.zip
 
-3. CONFIGURE OBJECT PERMISSIONS (MANDATORY FOR ACCESS):
-   - By default, newly deployed Liferay Objects restrict Guest and User access.
-   - Navigate to: Control Panel -> Objects -> [Your Object] -> Permissions tab
-   - Grant 'View' and 'Add Object Entry' permissions to 'User' and/or 'Guest' roles.
+3. BUILD A MASTER PAGE: Design -> Masters -> Add; header fragment above and footer fragment below the page area;
+   fill their drop zones with the widgets named in the fragments' MIGRATION.md; in its Look and Feel select
+   'Acme Theme CSS'; publish and use it for a test page.
 
-4. ADD CUSTOM ELEMENT WIDGET TO CONTENT PAGES:
-   - In Liferay, edit any Content Page in the Page Editor.
-   - Open the Fragments & Widgets panel -> search for your Custom Element under 'Client Extensions'.
-   - Drag and drop the widget onto the page and publish!
-
-5. OPTIONAL: CREATE DISPLAY PAGE TEMPLATES (DPT):
-   - For dedicated detail pages for each record without writing React routes:
-   - Navigate to: Site Administration -> Design -> Page Templates -> Display Page Templates
-   - Click 'Add' -> Select your Object definition as the Content Type
-   - Design the detail view using Page Fragments and visually map title, description, and date fields.
+4. COMPARE the test page with the original theme, then apply the master page to the site's pages.
 

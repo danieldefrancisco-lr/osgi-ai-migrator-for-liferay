@@ -44,6 +44,8 @@ public class ThemeInventory {
     public final List<String> assets = new ArrayList<>();
     /** JavaScript files with code (the empty main.js of the theme generator is left out). */
     public final List<String> customJs = new ArrayList<>();
+    /** The scripts of customJs that use AUI, which is not loaded outside classic themes. */
+    public final List<String> usesAui = new ArrayList<>();
     public final List<String> templates = new ArrayList<>();
     public final List<Setting> settings = new ArrayList<>();
     /** WEB-INF/frontend-token-definition.json, if the theme already defines Style Book tokens. */
@@ -160,6 +162,10 @@ public class ThemeInventory {
                     theme.notMigrated.add(rel + ": the empty main.js of the theme generator");
                 } else {
                     theme.customJs.add(rel);
+                    String js = read(new File(theme.themeRoot, rel));
+                    if (js.contains("AUI(") || js.contains("A.one(") || js.contains("A.all(")) {
+                        theme.usesAui.add(rel);
+                    }
                 }
             } else if (rel.startsWith("templates/") && rel.endsWith(".ftl")) {
                 theme.templates.add(rel);
@@ -189,7 +195,8 @@ public class ThemeInventory {
         if (candidateSpritemap != null) {
             lines.add("Possible own icon set: " + candidateSpritemap + " (copied, not registered as a spritemap: check it before replacing the Clay icons)");
         }
-        lines.add("JavaScript with code: " + (customJs.isEmpty() ? "none" : String.join(", ", customJs)));
+        lines.add("JavaScript with code: " + (customJs.isEmpty() ? "none" : String.join(", ", customJs)) +
+            (usesAui.isEmpty() ? "" : " (uses AUI, so it must be ported or dropped: " + String.join(", ", usesAui) + ")"));
         lines.add("Templates: " + String.join(", ", templates));
         List<String> configurable = new ArrayList<>();
         for (Setting s : settings) {

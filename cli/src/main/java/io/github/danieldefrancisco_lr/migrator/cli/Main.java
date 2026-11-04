@@ -40,7 +40,7 @@ public class Main {
         "                                     (a theme, as a folder or a .war, needs no plan: its client extension is built without AI)\n" +
         "  config                             Show the Gemini settings in effect and where they come from\n" +
         "  verify <workspace-dir>             Run Raphael's checks on the client extensions and fragments of a Liferay workspace\n" +
-        "                                     (exit code 3 when there are warnings); --only <cx,cx> reports only those client extensions\n" +
+        "                                     (exit code 3 when there are warnings); --only <name,name> reports only those client extensions or fragment collections\n" +
         "  knowledge <dir>                    Export the playbooks, blueprints and schemas of this version\n" +
         "\n" +
         "Options:\n" +
@@ -161,6 +161,10 @@ public class Main {
 
             err.println("Donatello: analyzing " + selected + " ...");
             ModuleAnalysisResult analysis = LegacyModuleAnalyzer.analyze(new FileSystemModuleSource(moduleDir, selected));
+            if (options.containsKey("--workspace")) {
+                // An extracted .war (or a module outside any workspace) has no workspace of its own to report
+                analysis.liferayWorkspaceRoot = new File(options.get("--workspace")).getAbsolutePath();
+            }
             String analysisReport = MigrationReports.buildDonatelloReport(analysis);
             if (command.equals("analyze")) {
                 if (json) {
@@ -272,6 +276,7 @@ public class Main {
             List<String> prefixes = new ArrayList<>();
             for (String name : only.split(",")) {
                 prefixes.add("client-extensions/" + name.trim() + "/");
+                prefixes.add("fragments/" + name.trim() + "/");
             }
             warnings.removeIf(w -> prefixes.stream().noneMatch(w::contains));
         }
@@ -322,6 +327,7 @@ public class Main {
         m.put("notifications", a.detectedNotifications);
         m.put("customLogic", a.detectedCustomLogic);
         m.put("theme", a.theme == null ? null : a.theme.summary());
+        m.put("themeSlug", a.theme == null ? null : ThemeGenerator.slug(a.theme.themeId));
         List<String> renames = new ArrayList<>();
         for (String line : AgentOrchestrator.reservedColumnRenames(a).split("\n")) {
             if (!line.isBlank()) {

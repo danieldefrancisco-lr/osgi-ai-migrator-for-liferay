@@ -77,33 +77,22 @@ Legacy Application Display Templates (`*.ftl`) required developers to call Java 
 
 ## 4. End-to-End Delivery Structure
 
-When a legacy theme module (`my-brand-theme/`) is migrated, Michelangelo outputs:
+When a legacy theme (`my-brand-theme`, as a theme project or a deployed `.war`) is migrated, `[theme-slug]` is its
+theme id in lowercase with `-theme` appended if missing (`my-brand-theme`; `liferaybotics-b2b` → `liferaybotics-b2b-theme`):
 ```
 client-extensions/
-└── [brand-slug]-theme/            (one client extension: themeCSS + themeFavicon + themeSpritemap, generation playbook 8.1 and 8.4)
-    ├── client-extension.yaml
+└── [theme-slug]/                  written by the migrator without AI (generation playbook 8.1): themeCSS, themeFavicon if
+    ├── client-extension.yaml      the theme has its own favicon, one globalJS per script with code
     ├── package.json               ("liferayDesignPack": {"baseTheme": "styled"})
-    ├── assets/images/
-    │   ├── favicon.ico            (copied from the legacy theme, never generated)
-    │   └── icons.svg              (only if the legacy theme shipped its own complete icon set)
+    ├── assets/                    the theme's images, fonts and scripts, copied byte for byte
     └── src/
-        ├── frontend-token-definition.json
-        └── css/
-            ├── _clay_variables.scss
-            └── _custom.scss       (legacy rules scoped under #wrapper)
+        ├── frontend-token-definition.json   (the theme's own, if it had Style Book tokens)
+        └── css/                   the theme's SCSS and the base partials it imports
 fragments/
-└── [brand-slug]-theme-fragments/
-    ├── collection.json
-    ├── header/
-    │   ├── fragment.json
-    │   ├── index.html
-    │   └── index.css
-    ├── footer/
-    │   ├── fragment.json
-    │   ├── index.html
-    │   └── index.css
-    └── content-card/
-        ├── fragment.json
-        ├── index.html
-        └── index.css
+├── [theme-slug]-fragments/        written by the coder (generation playbook 9.2)
+│   ├── collection.json
+│   ├── MIGRATION.md               widgets for each drop zone, master page steps (left out of the zip)
+│   ├── [theme-slug]-header/
+│   └── [theme-slug]-footer/
+└── [theme-slug]-fragments.zip     contents of the folder (collection.json and fragment folders at the zip root)
 ```

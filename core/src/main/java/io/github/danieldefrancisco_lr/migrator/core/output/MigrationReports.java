@@ -213,6 +213,20 @@ public class MigrationReports {
         }
 
         sb.append("POST-MIGRATION ACTION CHECKLIST & MANUAL STEPS:\n\n");
+        boolean objectsOrWidgets = plan.generatedFiles.entrySet().stream().anyMatch(e -> e.getKey().endsWith("client-extension.yaml") &&
+            (e.getValue().contains("type: batch") || e.getValue().contains("type: customElement") || e.getValue().contains("type: objectAction")));
+        if (analysisResult.theme != null && !objectsOrWidgets) {
+            String id = ThemeGenerator.slug(analysisResult.theme.themeId);
+            sb.append("1. DEPLOY THE THEME CLIENT EXTENSION:\n");
+            sb.append("     blade gw :client-extensions:").append(id).append(":deploy\n\n");
+            sb.append("2. IMPORT THE FRAGMENTS (IF GENERATED): Site Administration -> Design -> Fragments -> (...) -> Import ->\n");
+            sb.append("   fragments/").append(id).append("-fragments.zip\n\n");
+            sb.append("3. BUILD A MASTER PAGE: Design -> Masters -> Add; header fragment above and footer fragment below the page area;\n");
+            sb.append("   fill their drop zones with the widgets named in the fragments' MIGRATION.md; in its Look and Feel select\n");
+            sb.append("   '").append(analysisResult.theme.themeName).append(" CSS'; publish and use it for a test page.\n\n");
+            sb.append("4. COMPARE the test page with the original theme, then apply the master page to the site's pages.\n");
+            return sb.toString();
+        }
         sb.append("1. DEPLOY CLIENT EXTENSIONS:\n");
         List<String> microservices = new ArrayList<>();
         for (String p : plan.generatedFiles.keySet()) {

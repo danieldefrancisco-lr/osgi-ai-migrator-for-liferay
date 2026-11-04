@@ -19,7 +19,8 @@ Paths below are relative to this skill's folder. `<cli>` means `java -jar script
 <cli> analyze <module-dir> --json
 ```
 
-Read `report`, `entities`, `portlets`, `customLogic` and `fieldRenames`, then read the module's source files yourself
+`<module-dir>` can also be a theme project or a deployed theme `.war`. Read `report`, `entities`, `portlets`,
+`customLogic`, `fieldRenames` and `theme` (null unless it is a theme), then read the module's source files yourself
 (the analysis lists them; read them in full, the CLI does not truncate anything you open directly). Find the Liferay
 workspace: the folder with `settings.gradle` / `gradle.properties` and `client-extensions/` (ask the user if the
 module is not inside one).
@@ -40,7 +41,10 @@ Read `references/knowledge/playbooks/02-mapping-rules.md` and, when they apply, 
 - the legacy `ModelListenerException` rollbacks you cannot keep (actions run after the save), noted for `MIGRATION.md`;
 - data: plan an export of the legacy tables (data migration blueprint) only if the user asks for it; never invent entries;
 - each Object Action (name in camelCase, `externalReferenceCode`, trigger, executor) and Notification Template;
-- the client extensions to create and, for the microservice, its id and port (58081).
+- the client extensions to create and, for the microservice, its id and port (58081);
+- for a theme (`theme` in the analysis): the fragments (header, footer) with their drop zones and the widget for each,
+  the configuration fields and which settings go to `MIGRATION.md` instead, and what happens to each script (ported
+  into a fragment, kept as globalJS, or dropped because it uses AUI or only served the classic theme).
 
 ## 3. Generate
 
@@ -66,6 +70,42 @@ Write `MIGRATION.md` in each client extension with the manual steps (validations
 for a microservice, the environment table of playbook section 4.4.7: how to set `.serviceAddress` for a local
 bundle, Docker (`host.docker.internal`), Docker Compose, a remote server or SaaS.
 
+### Themes
+
+Do **not** write the theme client extension yourself: the CLI builds it from the theme's own files, without AI, in
+the format validated on DXP 2026 (theme CSS on the "styled" design pack, the theme's SCSS and the base partials it
+imports, its Style Book tokens, images, fonts and JavaScript; the Clay sources, default favicon and Clay icons that a
+built WAR carries are left out):
+
+```
+<cli> apply <theme-dir-or.war> --workspace <workspace-dir>
+```
+
+It writes `client-extensions/<theme-slug>/` (`themeSlug` in the analysis: the theme id in lowercase, ending in `-theme`)
+and `docs/migrations/<theme-slug>-migration-report.md`, whose theme section lists the settings, templates and scripts. Your part is the fragment collection that replaces the templates
+(`portal_normal.ftl`, `navigation.ftl`...), following playbook section 9.2: `fragments/<theme-slug>-fragments/` with the
+fragments `<theme-slug>-header` and `<theme-slug>-footer`. Rules validated on a real import:
+
+- Keep the template's HTML structure, CSS classes and ids: the migrated theme CSS styles the fragments through them.
+- Texts, logo and links become editable fields; navigation, search, user bar, language selector and embedded portlets
+  become drop zones, each with a stable id: `<lfr-drop-zone data-lfr-drop-zone-id="navigation"></lfr-drop-zone>`.
+- Never put a drop zone or an editable field inside `[#if]`: Liferay matches drop zones by position, and a widget
+  dropped in one zone ends up in another when an option changes. Hide optional parts with a class:
+  `class="language-selector[#if !configuration.showLanguageSelector] d-none[/#if]"`.
+- `configuration.json`: one field per configurable setting that changes the fragment's markup; checkboxes have no
+  `dataType` (`"bool"` is rejected). Portal-behaviour settings (`use-sign-in-modal`...) go to `MIGRATION.md`.
+- `collection.json` has `fragmentCollectionKey` and every `fragment.json` its `fragmentEntryKey` (the folder names).
+- Fragment FreeMarker uses square brackets (`[#if configuration.x]`) and `${configuration.x}`; no theme variables,
+  taglibs or AUI. An editable cannot contain another one: a logo link around the logo and site name editables takes its
+  `href` from a configuration text field (`homeURL`).
+- A header-only script (e.g. a sticky header) goes into the fragment's `index.js`; then remove its globalJS entry and
+  file from the theme client extension, the only edit you make there. Scripts that use AUI cannot stay as globalJS.
+
+Write `fragments/<theme-slug>-fragments/MIGRATION.md` with the widget for each drop zone, the settings that are not
+configuration and the master page steps. Zip the collection (`collection.json` and the fragment folders at the root of
+the zip, without `MIGRATION.md`) as `fragments/<theme-slug>-fragments.zip` for *Design → Fragments → Import*.
+Run `verify` with `--only <theme-slug>,<theme-slug>-fragments`: `--only` takes client extension and fragment collection names.
+
 ## 4. Verify
 
 ```
@@ -83,6 +123,12 @@ From the workspace root: `blade gw :client-extensions:<name>:build` (or `./gradl
 Read the Liferay log after each deployment (`docker logs <container>` or `logs/liferay.*.log`): the batch engine
 reports each file as `Successfully deployed` or with the exception to fix. If the user tests the actions, the
 microservice logs the JSON Liferay sends; compare it with playbook section 4.4.6.
+
+For a theme: build and deploy `client-extensions/<theme>-theme` like any client extension (a SCSS error during the
+build usually means a partial of the 7.x base theme is missing: copy it from the theme into `src/css`). Then the user
+imports the fragment zip, builds a master page (header fragment, page area, footer fragment), fills its drop zones with
+the widgets named in `MIGRATION.md`, selects the theme CSS in the master page's look and feel, and compares a test page
+with the original theme.
 
 ## Notes
 
