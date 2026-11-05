@@ -650,7 +650,7 @@ Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-ent
 *Parameters by executor:*
 - `notification`: `notificationTemplateExternalReferenceCode` and `type` (`email` or `userNotification`). The template must exist before the action (4.3).
 - `update-object-entry` and `add-object-entry`: `objectDefinitionExternalReferenceCode` is **mandatory** (the object to write to; without it the import fails with `ObjectActionParametersException`), plus `predefinedValues`: `{"name": [field], "value": [value or expression], "inputAsValue": true}` (`inputAsValue: false` evaluates `value` as an expression). Fields must exist and must not be localized; `add-object-entry` must set every required field of the target object.
-- `webhook`: `url` (mandatory) and `secret`.
+- `webhook`: `url` (mandatory) and `secret`. It posts Liferay's standard payload on every event that matches its condition: an `onAfterUpdate` webhook with `loanStatus == "returned"` fires again on every later update of a returned loan. A legacy call on a change of a value, or with a custom JSON body, belongs in the microservice (4.4).
 - `conditionExpression`: optional Liferay expression (e.g. `ticketStatus == "open"`); legacy `if` checks around the logic go here.
 
 ### 4.3 Notification Templates and File Order
@@ -1562,5 +1562,6 @@ Converts FreeMarker ADTs (e.g. `ap-blog-presentation-template.ftl`) into a reusa
 16. 'businessType' is one of: Text, LongText, RichText, Integer, LongInteger, Decimal, PrecisionDecimal, Boolean, Date, DateTime, Picklist, MultiselectPicklist, Attachment, Relationship. There is NO 'User' business type: a user id is a LongInteger.
 17. 'conditionExpression' can only use the entry's current field values. Conditions on the previous value (e.g. status changed to 'returned') go in the microservice, which receives 'originalObjectEntry'.
     'update-object-entry' predefinedValues are fixed values ('inputAsValue': true). NEVER write Java or JavaScript there ('new Date()', getTime()...): computed values go to the microservice.
+    A 'webhook' action only posts Liferay's standard payload, on EVERY event that matches its condition: an 'onAfterUpdate' webhook with 'loanStatus == "returned"' fires on every later update too. When the legacy code reacts to a change of a value or posts its own JSON payload, port it to the microservice, never to a webhook. An action the blueprint assigns to the microservice stays in the microservice.
 18. NEVER generate ObjectEntry batch files: you cannot see the legacy data, so any entries are invented (the migrator discards them). A data migration is described in the blueprint and MIGRATION.md as an export of the legacy table.
 19. Do not generate ObjectValidationRule batch files: they are not deployed. List each validation (field, rule, error message, legacy method) in the blueprint so MIGRATION.md tells the administrator to create it.

@@ -111,8 +111,10 @@ class MigrationReportsTest {
         assertTrue(report.contains("holds Object Validations and was not written") && report.contains("'validateBorrowerEmail'"), report);
         assertTrue(report.contains("imports object entries and was not written"), report);
         assertTrue(report.contains("action 'processReturn' has a conditionExpression on the previous values"), report);
+        assertTrue(report.contains("action 'processReturn' is a webhook on onAfterUpdate with the condition"), report);
         assertTrue(report.contains("action 'renewLoan' is standalone and has no 'errorMessage'"), report);
         assertFalse(report.contains("action 'closeLoan' is standalone"), report);
+        assertFalse(report.contains("action 'renewLoan' is a webhook on onAfterUpdate"), "a standalone webhook has no repeated trigger");
     }
 
     @Test

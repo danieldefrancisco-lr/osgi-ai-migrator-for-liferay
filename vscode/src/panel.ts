@@ -30,7 +30,7 @@ export class MigrationPanel {
         if (message.type === 'generate') {
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
-                title: 'Leonardo and Michelangelo are working with Gemini, this can take a minute...',
+                title: 'Leonardo and Michelangelo are working with the AI provider, this can take a few minutes...',
             }, async () => {
                 try {
                     const { result, planFile } = await this.actions.generate(message.includeObjects);

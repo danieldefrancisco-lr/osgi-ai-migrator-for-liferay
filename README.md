@@ -12,7 +12,9 @@ Client Extensions**. One migration engine, available where you work:
 | **CLI** | `analyze`, `migrate`, `apply`, plus `verify` and `knowledge`, which need no AI | `osgi-ai-migrator-cli-X.jar` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) |
 | **Agent skill** | Lets a coding agent (Claude Code, Gemini CLI, Codex...) do the migration, verify and deploy it | `osgi-ai-migrator-skill-X.zip` in the [releases](https://github.com/danieldefrancisco-lr/osgi-ai-migrator-for-liferay/releases) (from 3.4.0 on) |
 
-The IDE plugins and the CLI use Google Gemini; the agent skill uses whichever model the coding agent runs. All of
+The IDE plugins and the CLI use the AI provider you choose: Google Gemini (default), Anthropic Claude or any
+OpenAI-compatible server (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio); the agent skill uses whichever
+model the coding agent runs. All of
 them share the same analyzer, playbooks and checks, and are released together with one version number.
 
 > **Disclaimer:** this is an independent personal project. It is not affiliated with,
@@ -46,14 +48,16 @@ In the agent skill, the coding agent plays Leonardo and Michelangelo, and runs R
   still copied by hand).
 - **Raphael's checks**: reserved field names, missing external reference codes, invalid action parameters and
   notification terms, microservice ports and OAuth scopes, invented APIs, date formats and more.
-- **Gemini authentication** (plugins and CLI): gcloud ADC, Vertex AI service account, or Google AI Studio API key,
-  kept in each IDE's secure storage.
+- **Choice of AI provider** (plugins and CLI): Google Gemini (gcloud ADC, Vertex AI service account or Google AI
+  Studio API key), Anthropic Claude, or any OpenAI-compatible server, including local models. API keys are kept in
+  each IDE's secure storage.
 
 ## Requirements
 
 - Java 17 or later.
 - A Liferay workspace to write into (the module to migrate can be inside it or elsewhere).
-- For the IDE plugins and the CLI: access to Gemini through Google AI Studio or Vertex AI.
+- For the IDE plugins and the CLI: access to an AI provider: Gemini (Google AI Studio or Vertex AI), an Anthropic
+  API key, or an OpenAI-compatible server.
 - Per product: Eclipse 2024-12 (4.34) or later, or Liferay Developer Studio; a JetBrains IDE 2024.3 or later;
   VS Code; or a coding agent that can read files and run shell commands.
 
@@ -70,15 +74,16 @@ Or use *Help → Install New Software → Add…* and enter the update site URL:
 https://danieldefrancisco-lr.github.io/osgi-ai-migrator-for-liferay/
 ```
 
-Right-click a module → **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...** to open the wizard. Gemini is
-configured in **Window → Preferences → OSGi AI Migrator for Liferay** (the API key goes to Eclipse Secure Storage).
+Right-click a module → **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...** to open the wizard. The AI
+provider is chosen and configured in **Window → Preferences → OSGi AI Migrator for Liferay** (API keys go to Eclipse
+Secure Storage).
 
 ## IntelliJ IDEA and other JetBrains IDEs
 
 The `intellij/` plugin works in every JetBrains IDE from 2024.3 on. Right-click a module (or one of its
 folders) in the Project view and choose **OSGi AI Migrator → Migrate OSGi Module to Client Extensions...**;
-Gemini is configured in **Settings → Tools → OSGi AI Migrator for Liferay** (the API key goes to the IDE's
-password safe). Install it from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay):
+the AI provider is chosen and configured in **Settings → Tools → OSGi AI Migrator for Liferay** (API keys go to
+the IDE's password safe). Install it from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35717-osgi-ai-migrator-for-liferay):
 **Settings → Plugins → Marketplace**, search for "OSGi AI Migrator". Each GitHub Release also has
 `osgi-ai-migrator-intellij-X.zip`, for **Settings → Plugins → ⚙ → Install Plugin from Disk...**.
 
@@ -95,8 +100,9 @@ cd intellij && ./gradlew buildPlugin      # zip in intellij/build/distributions/
 
 The `vscode/` extension runs the bundled CLI, so it needs Java 17 or later (setting
 **OSGi AI Migrator: Java Home** if `java` on the PATH is older). Right-click a module folder in the Explorer and
-choose **Migrate OSGi Module to Client Extensions...**. Gemini settings are under **OSGi AI Migrator** in the
-VS Code settings; for AI Studio, run **OSGi AI Migrator: Set Gemini API Key** (kept in VS Code secret storage).
+choose **Migrate OSGi Module to Client Extensions...**. The provider and its settings are under
+**OSGi AI Migrator** in the VS Code settings; API keys are set with **OSGi AI Migrator: Set AI Provider API Key**
+(kept in VS Code secret storage).
 Install it from the
 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=DanieldeFrancisco.osgi-ai-migrator)
 (search for "OSGi AI Migrator" in the Extensions view, or run `code --install-extension DanieldeFrancisco.osgi-ai-migrator`).

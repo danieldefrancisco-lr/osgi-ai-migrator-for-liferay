@@ -2,7 +2,7 @@ package io.github.danieldefrancisco_lr.migrator.ui;
 
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator;
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
-import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiClient;
+import io.github.danieldefrancisco_lr.migrator.core.agent.LlmClients;
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
 import io.github.danieldefrancisco_lr.migrator.core.output.ArtifactWriter;
 import io.github.danieldefrancisco_lr.migrator.core.output.MigrationReports;
@@ -62,7 +62,7 @@ public class MigrationWizardDialog extends TitleAreaDialog {
         super(parentShell);
         this.targetResource = resource;
         this.analysisResult = analysis;
-        this.orchestrator = new AgentOrchestrator(new GeminiClient(new PreferenceGeminiSettings()));
+        this.orchestrator = new AgentOrchestrator(LlmClients.create(new PreferenceGeminiSettings()));
     }
 
     @Override

@@ -29,6 +29,18 @@ test('passes only the settings that are set, and isolates the config file', () =
     ]);
 });
 
+test('passes the provider, and the Google options only to Gemini', () => {
+    const claude = buildArgs('cli.jar', 'migrate', '/m', { ...settings, provider: 'ANTHROPIC', model: 'claude-opus-5-5', effort: 'medium' },
+        '/none.properties');
+    assert.deepEqual(claude, [
+        '-jar', 'cli.jar', 'migrate', '/m', '--json', '--config', '/none.properties',
+        '--provider', 'ANTHROPIC', '--model', 'claude-opus-5-5', '--effort', 'medium',
+    ]);
+    const local = buildArgs('cli.jar', 'migrate', '/m', { ...settings, provider: 'OPENAI', model: 'qwen3-coder',
+        endpoint: 'http://localhost:11434/v1', effort: 'high' }, '/none.properties');
+    assert.deepEqual(local.slice(7), ['--provider', 'OPENAI', '--model', 'qwen3-coder', '--endpoint', 'http://localhost:11434/v1']);
+});
+
 test('extracts the CLI error lines', () => {
     const result = {
         code: 1,

@@ -1,8 +1,8 @@
 {
   "name": "osgi-ai-migrator",
   "displayName": "OSGi AI Migrator for Liferay",
-  "description": "AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects and Client Extensions, powered by Google Gemini.",
-  "version": "3.4.1",
+  "description": "AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects and Client Extensions, with Google Gemini, Anthropic Claude or any OpenAI-compatible model.",
+  "version": "4.0.0",
   "publisher": "DanieldeFrancisco",
   "license": "Apache-2.0",
   "icon": "images/icon.png",
@@ -24,6 +24,8 @@
     "osgi",
     "migration",
     "gemini",
+    "claude",
+    "openai",
     "client extensions"
   ],
   "main": "./out/extension.js",
@@ -36,7 +38,7 @@
       },
       {
         "command": "osgiAiMigrator.setApiKey",
-        "title": "Set Gemini API Key (AI Studio)",
+        "title": "Set AI Provider API Key",
         "category": "OSGi AI Migrator"
       }
     ],
@@ -63,6 +65,22 @@
           "default": "",
           "markdownDescription": "JDK 17 or later used to run the migrator. Empty: `JAVA_HOME`, then `java` on the PATH."
         },
+        "osgiAiMigrator.provider": {
+          "type": "string",
+          "enum": [
+            "GEMINI",
+            "ANTHROPIC",
+            "OPENAI"
+          ],
+          "enumDescriptions": [
+            "Google Gemini",
+            "Anthropic Claude",
+            "Any OpenAI-compatible server: OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio..."
+          ],
+          "default": "GEMINI",
+          "markdownDescription": "AI provider of the agents. API keys are set with the command **OSGi AI Migrator: Set AI Provider API Key**.",
+          "order": 0
+        },
         "osgiAiMigrator.authType": {
           "type": "string",
           "enum": [
@@ -73,40 +91,72 @@
           "enumDescriptions": [
             "Google Cloud ADC (gcloud auth login)",
             "Vertex AI with a service account JSON file",
-            "Google AI Studio with an API key (command: Set Gemini API Key)"
+            "Google AI Studio with an API key (command: Set AI Provider API Key)"
           ],
           "default": "GCLOUD_ADC",
-          "description": "How to authenticate to Gemini."
+          "description": "Gemini: how to authenticate."
         },
         "osgiAiMigrator.projectId": {
           "type": "string",
           "default": "",
-          "description": "GCP project ID (empty = gcloud active project or GOOGLE_CLOUD_PROJECT)."
+          "description": "Gemini: GCP project ID (empty = gcloud active project or GOOGLE_CLOUD_PROJECT)."
         },
         "osgiAiMigrator.region": {
           "type": "string",
           "default": "us-central1",
-          "description": "Vertex AI region."
+          "description": "Gemini: Vertex AI region."
         },
         "osgiAiMigrator.serviceAccountFile": {
           "type": "string",
           "default": "",
-          "description": "Service account JSON file (Vertex AI)."
+          "description": "Gemini: service account JSON file (Vertex AI)."
         },
         "osgiAiMigrator.model": {
           "type": "string",
           "default": "gemini-2.5-flash",
-          "description": "Gemini model."
+          "description": "Gemini: model."
         },
         "osgiAiMigrator.temperature": {
           "type": "number",
           "default": 0.2,
-          "description": "Generation temperature."
+          "description": "Gemini: generation temperature."
         },
         "osgiAiMigrator.endpoint": {
           "type": "string",
           "default": "",
-          "description": "AI Studio endpoint (empty = default)."
+          "description": "Gemini: AI Studio endpoint (empty = default)."
+        },
+        "osgiAiMigrator.anthropicModel": {
+          "type": "string",
+          "default": "claude-opus-5-5",
+          "description": "Claude: model (e.g. claude-opus-5-5, claude-sonnet-5-5)."
+        },
+        "osgiAiMigrator.anthropicEffort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "default": "high",
+          "description": "Claude: effort. Lower is faster and cheaper; higher reasons more."
+        },
+        "osgiAiMigrator.anthropicEndpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Claude: API endpoint (empty = https://api.anthropic.com)."
+        },
+        "osgiAiMigrator.openaiBaseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI-compatible: base URL (empty = `https://api.openai.com/v1`; Ollama: `http://localhost:11434/v1`)."
+        },
+        "osgiAiMigrator.openaiModel": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI-compatible: model (required, e.g. gpt-5 or qwen3-coder)."
         }
       }
     }

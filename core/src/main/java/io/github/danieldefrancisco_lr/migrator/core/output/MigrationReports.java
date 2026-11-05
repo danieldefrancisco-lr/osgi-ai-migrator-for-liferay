@@ -391,6 +391,14 @@ public class MigrationReports {
                 warnings.add(path + " action " + name + " has a conditionExpression on the previous values (" + condition +
                     "); conditions only see the current entry, so check originalObjectEntry in the microservice instead.");
             }
+            if (action.matches("(?s).*\"objectActionExecutorKey\"\\s*:\\s*\"webhook\".*") &&
+                action.matches("(?s).*\"objectActionTriggerKey\"\\s*:\\s*\"onAfterUpdate\".*") &&
+                condition != null && !condition.trim().isEmpty()) {
+                warnings.add(path + " action " + name + " is a webhook on onAfterUpdate with the condition (" + condition +
+                    "); it fires on every update while the condition holds, not only when it becomes true, and sends Liferay's " +
+                    "standard payload. To react to a change (e.g. the status becomes 'returned') or to send the legacy custom payload, " +
+                    "handle it in the microservice with originalObjectEntry.");
+            }
             if (action.matches("(?s).*\"objectActionTriggerKey\"\\s*:\\s*\"onBefore.*")) {
                 warnings.add(path + " action " + name + " uses an onBefore* trigger, which Object Actions do not have; use an onAfter* trigger or an Object Validation.");
             }

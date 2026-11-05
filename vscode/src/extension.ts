@@ -3,7 +3,12 @@ import * as vscode from 'vscode';
 import { buildArgs, CliResult, errorMessage, findJava, MigratorSettings, parseJavaMajor, run } from './cli';
 import { MigrationPanel } from './panel';
 
-const API_KEY_SECRET = 'osgiAiMigrator.geminiApiKey';
+/** Secret storage id and environment variable of each provider's API key. */
+const API_KEYS: { [provider: string]: { secret: string; env: string; label: string } } = {
+    GEMINI: { secret: 'osgiAiMigrator.geminiApiKey', env: 'GEMINI_API_KEY', label: 'Google Gemini (AI Studio)' },
+    ANTHROPIC: { secret: 'osgiAiMigrator.anthropicApiKey', env: 'ANTHROPIC_API_KEY', label: 'Anthropic Claude' },
+    OPENAI: { secret: 'osgiAiMigrator.openaiApiKey', env: 'OPENAI_API_KEY', label: 'OpenAI-compatible' },
+};
 
 export function activate(context: vscode.ExtensionContext): void {
     const migrator = new Migrator(context);
@@ -44,8 +49,16 @@ export class Migrator {
     }
 
     async setApiKey(): Promise<void> {
+        const current = vscode.workspace.getConfiguration('osgiAiMigrator').get<string>('provider', 'GEMINI');
+        const items = Object.keys(API_KEYS).map((id) => ({ label: API_KEYS[id].label, id, picked: id === current }));
+        items.sort((a, b) => Number(b.picked) - Number(a.picked));
+        const pick = await vscode.window.showQuickPick(items, { title: 'API key of which AI provider?' });
+        if (!pick) {
+            return;
+        }
+        const target = API_KEYS[pick.id];
         const key = await vscode.window.showInputBox({
-            title: 'Gemini API key (Google AI Studio)',
+            title: `${target.label} API key`,
             prompt: 'Stored in VS Code secret storage. Leave empty to remove it.',
             password: true,
             ignoreFocusOut: true,
@@ -54,11 +67,13 @@ export class Migrator {
             return;
         }
         if (key.trim()) {
-            await this.context.secrets.store(API_KEY_SECRET, key.trim());
-            vscode.window.showInformationMessage('Gemini API key saved. Set "OSGi AI Migrator: Auth Type" to AI_STUDIO to use it.');
+            await this.context.secrets.store(target.secret, key.trim());
+            const hint = pick.id === 'GEMINI' ? ' Set "OSGi AI Migrator: Auth Type" to AI_STUDIO to use it.'
+                : pick.id !== current ? ` Set "OSGi AI Migrator: Provider" to ${pick.id} to use it.` : '';
+            vscode.window.showInformationMessage(`${target.label} API key saved.${hint}`);
         } else {
-            await this.context.secrets.delete(API_KEY_SECRET);
-            vscode.window.showInformationMessage('Gemini API key removed.');
+            await this.context.secrets.delete(target.secret);
+            vscode.window.showInformationMessage(`${target.label} API key removed.`);
         }
     }
 
@@ -87,9 +102,11 @@ export class Migrator {
         // A config file that does not exist: only VS Code's settings (and the environment) apply
         const configFile = vscode.Uri.joinPath(this.context.globalStorageUri, 'no-config.properties').fsPath;
         const env = { ...process.env };
-        const apiKey = await this.context.secrets.get(API_KEY_SECRET);
-        if (apiKey) {
-            env.GEMINI_API_KEY = apiKey;
+        for (const id of Object.keys(API_KEYS)) {
+            const apiKey = await this.context.secrets.get(API_KEYS[id].secret);
+            if (apiKey) {
+                env[API_KEYS[id].env] = apiKey;
+            }
         }
         return run(java, buildArgs(jar, command, moduleDir, readSettings(), configFile, extra), env);
     }
@@ -116,13 +133,20 @@ export class Migrator {
 
 function readSettings(): MigratorSettings {
     const config = vscode.workspace.getConfiguration('osgiAiMigrator');
+    const provider = config.get<string>('provider', 'GEMINI');
+    const model = provider === 'ANTHROPIC' ? config.get<string>('anthropicModel', '')
+        : provider === 'OPENAI' ? config.get<string>('openaiModel', '') : config.get<string>('model', '');
+    const endpoint = provider === 'ANTHROPIC' ? config.get<string>('anthropicEndpoint', '')
+        : provider === 'OPENAI' ? config.get<string>('openaiBaseUrl', '') : config.get<string>('endpoint', '');
     return {
+        provider,
+        effort: config.get<string>('anthropicEffort', ''),
         authType: config.get<string>('authType', 'GCLOUD_ADC'),
         projectId: config.get<string>('projectId', ''),
         region: config.get<string>('region', ''),
         serviceAccountFile: config.get<string>('serviceAccountFile', ''),
-        model: config.get<string>('model', ''),
+        model,
         temperature: config.get<number>('temperature', 0.2),
-        endpoint: config.get<string>('endpoint', ''),
+        endpoint,
     };
 }

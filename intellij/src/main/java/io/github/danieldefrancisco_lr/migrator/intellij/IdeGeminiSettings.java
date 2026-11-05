@@ -10,7 +10,7 @@ import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiSettings;
 import java.util.Map;
 
 /**
- * Gemini settings stored by the IDE: plain values in the application properties, the API key in the IDE's
+ * AI provider settings stored by the IDE: plain values in the application properties, the API keys in the IDE's
  * password safe (the OS keychain where available). Same keys and defaults as the Eclipse plugin.
  */
 public final class IdeGeminiSettings implements GeminiSettings {
@@ -18,11 +18,16 @@ public final class IdeGeminiSettings implements GeminiSettings {
     private static final String PREFIX = "io.github.danieldefrancisco_lr.migrator.";
 
     private static final Map<String, String> DEFAULTS = Map.of(
+        P_PROVIDER, DEFAULT_PROVIDER,
         P_AUTH_TYPE, DEFAULT_AUTH_TYPE,
         P_GEMINI_MODEL, DEFAULT_MODEL,
         P_TEMPERATURE, DEFAULT_TEMPERATURE,
         P_VERTEX_REGION, DEFAULT_VERTEX_REGION,
-        P_GEMINI_ENDPOINT, DEFAULT_ENDPOINT);
+        P_GEMINI_ENDPOINT, DEFAULT_ENDPOINT,
+        P_ANTHROPIC_MODEL, DEFAULT_ANTHROPIC_MODEL,
+        P_ANTHROPIC_EFFORT, DEFAULT_ANTHROPIC_EFFORT,
+        P_ANTHROPIC_ENDPOINT, DEFAULT_ANTHROPIC_ENDPOINT,
+        P_OPENAI_BASE_URL, DEFAULT_OPENAI_BASE_URL);
 
     @Override
     public String get(String key) {

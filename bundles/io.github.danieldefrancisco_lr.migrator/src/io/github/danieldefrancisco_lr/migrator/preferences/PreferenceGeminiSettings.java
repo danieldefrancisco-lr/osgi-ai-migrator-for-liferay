@@ -4,7 +4,7 @@ import io.github.danieldefrancisco_lr.migrator.Activator;
 import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiSettings;
 
 /**
- * Gemini settings from the plugin preference store, with secrets in Eclipse Secure Storage.
+ * AI provider settings from the plugin preference store, with secrets in Eclipse Secure Storage.
  */
 public class PreferenceGeminiSettings implements GeminiSettings {
 

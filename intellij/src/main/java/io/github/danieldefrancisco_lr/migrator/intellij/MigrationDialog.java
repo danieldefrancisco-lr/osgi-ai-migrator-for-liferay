@@ -17,7 +17,7 @@ import com.intellij.util.ui.JBUI;
 
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator;
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
-import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiClient;
+import io.github.danieldefrancisco_lr.migrator.core.agent.LlmClients;
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer.ModuleAnalysisResult;
 import io.github.danieldefrancisco_lr.migrator.core.output.ArtifactWriter;
 import io.github.danieldefrancisco_lr.migrator.core.output.MigrationReports;
@@ -111,9 +111,11 @@ public class MigrationDialog extends DialogWrapper {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 indicator.setIndeterminate(true);
-                indicator.setText("Leonardo and Michelangelo are working with Gemini, this can take a minute...");
+                IdeGeminiSettings settings = new IdeGeminiSettings();
+                indicator.setText("Leonardo and Michelangelo are working with " + LlmClients.describe(settings) +
+                    ", this can take a few minutes...");
                 try {
-                    AgentOrchestrator orchestrator = new AgentOrchestrator(new GeminiClient(new IdeGeminiSettings()));
+                    AgentOrchestrator orchestrator = new AgentOrchestrator(LlmClients.create(settings));
                     result = orchestrator.planAndGenerate(analysis, project.getBasePath(), generateObjects);
                 } catch (Exception e) {
                     throw new RuntimeException(e.getMessage(), e);

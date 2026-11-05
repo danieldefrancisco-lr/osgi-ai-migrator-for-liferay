@@ -4,6 +4,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export interface MigratorSettings {
+    /** GEMINI, ANTHROPIC or OPENAI; empty means GEMINI. */
+    provider?: string;
+    /** Claude only. */
+    effort?: string;
     authType: string;
     projectId: string;
     region: string;
@@ -50,7 +54,9 @@ export function parseJavaMajor(versionOutput: string): number | undefined {
 export function buildArgs(jar: string, command: string, moduleDir: string, settings: MigratorSettings,
                           configFile: string, extra: string[] = []): string[] {
     const args = ['-jar', jar, command, moduleDir, '--json', '--config', configFile];
-    const options: [string, string][] = [
+    const provider = (settings.provider || 'GEMINI').toUpperCase();
+    // model and endpoint are those of the selected provider; the Google options only apply to Gemini
+    const options: [string, string | undefined][] = provider === 'GEMINI' ? [
         ['--auth', settings.authType],
         ['--project', settings.projectId],
         ['--region', settings.region],
@@ -58,6 +64,11 @@ export function buildArgs(jar: string, command: string, moduleDir: string, setti
         ['--model', settings.model],
         ['--temperature', settings.temperature === undefined ? '' : String(settings.temperature)],
         ['--endpoint', settings.endpoint],
+    ] : [
+        ['--provider', provider],
+        ['--model', settings.model],
+        ['--endpoint', settings.endpoint],
+        ['--effort', provider === 'ANTHROPIC' ? settings.effort : ''],
     ];
     for (const [option, value] of options) {
         if (value && value.trim()) {

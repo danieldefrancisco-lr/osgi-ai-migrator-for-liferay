@@ -647,7 +647,7 @@ Executor keys: `notification`, `webhook`, `update-object-entry`, `add-object-ent
 *Parameters by executor:*
 - `notification`: `notificationTemplateExternalReferenceCode` and `type` (`email` or `userNotification`). The template must exist before the action (4.3).
 - `update-object-entry` and `add-object-entry`: `objectDefinitionExternalReferenceCode` is **mandatory** (the object to write to; without it the import fails with `ObjectActionParametersException`), plus `predefinedValues`: `{"name": [field], "value": [value or expression], "inputAsValue": true}` (`inputAsValue: false` evaluates `value` as an expression). Fields must exist and must not be localized; `add-object-entry` must set every required field of the target object.
-- `webhook`: `url` (mandatory) and `secret`.
+- `webhook`: `url` (mandatory) and `secret`. It posts Liferay's standard payload on every event that matches its condition: an `onAfterUpdate` webhook with `loanStatus == "returned"` fires again on every later update of a returned loan. A legacy call on a change of a value, or with a custom JSON body, belongs in the microservice (4.4).
 - `conditionExpression`: optional Liferay expression (e.g. `ticketStatus == "open"`); legacy `if` checks around the logic go here.
 
 ### 4.3 Notification Templates and File Order

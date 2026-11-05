@@ -5,12 +5,13 @@
 
     <description><![CDATA[
     <p>AI-assisted modernization of legacy Liferay 7.x OSGi modules into Liferay Objects and Client Extensions,
-    powered by Google Gemini (gcloud ADC, Vertex AI or Google AI Studio).</p>
+    powered by the AI provider you choose: Google Gemini (gcloud ADC, Vertex AI or Google AI Studio), Anthropic
+    Claude, or any OpenAI-compatible server (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio).</p>
     <p>Right-click a module in the Project view and choose <b>OSGi AI Migrator &rarr; Migrate OSGi Module to Client
     Extensions...</b> to run a 4-agent pipeline: Donatello analyzes the module, Leonardo designs the target
     architecture, Michelangelo generates the Batch and React Custom Element client extensions, and Raphael verifies
     the result before it is written to the Liferay workspace.</p>
-    <p>Configure Gemini in <b>Settings &rarr; Tools &rarr; OSGi AI Migrator for Liferay</b>.</p>
+    <p>Choose and configure the AI provider in <b>Settings &rarr; Tools &rarr; OSGi AI Migrator for Liferay</b>.</p>
     <p><i>Independent personal project. Not affiliated with, endorsed by, or supported by Liferay, Inc. Liferay and
     Liferay DXP are trademarks of Liferay, Inc.</i></p>
     ]]></description>
@@ -30,7 +31,7 @@
             <action id="io.github.danieldefrancisco_lr.migrator.migrateModule"
                     class="io.github.danieldefrancisco_lr.migrator.intellij.MigrateModuleAction"
                     text="Migrate OSGi Module to Client Extensions..."
-                    description="Analyze this legacy Liferay OSGi module and generate Liferay Objects and Client Extensions with Gemini"/>
+                    description="Analyze this legacy Liferay OSGi module and generate Liferay Objects and Client Extensions with AI"/>
         </group>
     </actions>
 </idea-plugin>
