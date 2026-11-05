@@ -8,12 +8,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
- * Gemini settings for the CLI, resolved per key from (highest first): command-line options, the config file
- * (~/.osgi-ai-migrator/config.properties), the standard Google environment variables and defaults. The config file
+ * AI provider settings for the CLI, resolved per key from (highest first): command-line options, the config file
+ * (~/.osgi-ai-migrator/config.properties), the providers' standard environment variables and defaults. The config file
  * wins over the environment because those variables are shared with other tools, while the file is only ours.
  * The API key is never taken from the command line, so it does not end up in the shell history.
  */
@@ -21,20 +23,36 @@ public class CliSettings implements GeminiSettings {
 
     public static final Path DEFAULT_CONFIG_FILE = Path.of(System.getProperty("user.home"), ".osgi-ai-migrator", "config.properties");
 
-    /** Standard Google environment variables mapped to settings keys. */
+    /** Command-line pseudo keys that apply to the selected provider: --model and --endpoint. */
+    public static final String OPTION_MODEL = "model";
+    public static final String OPTION_ENDPOINT = "endpoint";
+
+    /** Every settings key the CLI reads, in the order 'config' shows them. */
+    static final String[] KEYS = { P_PROVIDER,
+        P_AUTH_TYPE, P_GEMINI_MODEL, P_TEMPERATURE, P_VERTEX_PROJECT_ID, P_VERTEX_REGION, P_SERVICE_ACCOUNT_FILE, P_GEMINI_ENDPOINT, P_GEMINI_API_KEY,
+        P_ANTHROPIC_MODEL, P_ANTHROPIC_EFFORT, P_ANTHROPIC_ENDPOINT, P_ANTHROPIC_API_KEY,
+        P_OPENAI_MODEL, P_OPENAI_BASE_URL, P_OPENAI_API_KEY };
+
+    static final Set<String> SECRET_KEYS = Set.of(P_GEMINI_API_KEY, P_ANTHROPIC_API_KEY, P_OPENAI_API_KEY);
+
+    /** Standard environment variables of each provider mapped to settings keys. */
     static final Map<String, String> ENV_VARS = new LinkedHashMap<>();
     static {
         ENV_VARS.put(P_GEMINI_API_KEY, "GEMINI_API_KEY");
         ENV_VARS.put(P_SERVICE_ACCOUNT_FILE, "GOOGLE_APPLICATION_CREDENTIALS");
         ENV_VARS.put(P_VERTEX_PROJECT_ID, "GOOGLE_CLOUD_PROJECT");
         ENV_VARS.put(P_VERTEX_REGION, "GOOGLE_CLOUD_LOCATION");
+        ENV_VARS.put(P_ANTHROPIC_API_KEY, "ANTHROPIC_API_KEY");
+        ENV_VARS.put(P_ANTHROPIC_ENDPOINT, "ANTHROPIC_BASE_URL");
+        ENV_VARS.put(P_OPENAI_API_KEY, "OPENAI_API_KEY");
+        ENV_VARS.put(P_OPENAI_BASE_URL, "OPENAI_BASE_URL");
     }
 
     private final Map<String, String> values = new LinkedHashMap<>();
     private final Map<String, String> sources = new LinkedHashMap<>();
     private final Path configFile;
 
-    public CliSettings(Map<String, String> options, Map<String, String> env, Path configFile) throws IOException {
+    public CliSettings(Map<String, String> commandLine, Map<String, String> env, Path configFile) throws IOException {
         this.configFile = configFile;
         Properties file = new Properties();
         if (Files.isRegularFile(configFile)) {
@@ -42,8 +60,23 @@ public class CliSettings implements GeminiSettings {
                 file.load(reader);
             }
         }
-        for (String key : new String[] { P_AUTH_TYPE, P_GEMINI_MODEL, P_TEMPERATURE, P_VERTEX_PROJECT_ID, P_VERTEX_REGION,
-                                         P_SERVICE_ACCOUNT_FILE, P_GEMINI_ENDPOINT, P_GEMINI_API_KEY }) {
+        // --model and --endpoint go to the keys of the provider in effect (command line, then file, then Gemini)
+        Map<String, String> options = new LinkedHashMap<>(commandLine);
+        String provider = !isBlank(options.get(P_PROVIDER)) ? options.get(P_PROVIDER)
+            : !isBlank(file.getProperty(P_PROVIDER)) ? file.getProperty(P_PROVIDER) : DEFAULT_PROVIDER;
+        provider = provider.trim().toUpperCase();
+        if (!List.of(PROVIDER_GEMINI, PROVIDER_ANTHROPIC, PROVIDER_OPENAI).contains(provider)) {
+            throw new IllegalArgumentException("Unknown AI provider '" + provider + "': use GEMINI, ANTHROPIC or OPENAI");
+        }
+        String model = options.remove(OPTION_MODEL);
+        if (model != null) {
+            options.put(provider.equals(PROVIDER_ANTHROPIC) ? P_ANTHROPIC_MODEL : provider.equals(PROVIDER_OPENAI) ? P_OPENAI_MODEL : P_GEMINI_MODEL, model);
+        }
+        String endpoint = options.remove(OPTION_ENDPOINT);
+        if (endpoint != null) {
+            options.put(provider.equals(PROVIDER_ANTHROPIC) ? P_ANTHROPIC_ENDPOINT : provider.equals(PROVIDER_OPENAI) ? P_OPENAI_BASE_URL : P_GEMINI_ENDPOINT, endpoint);
+        }
+        for (String key : KEYS) {
             String envVar = ENV_VARS.get(key);
             if (!isBlank(options.get(key))) {
                 put(key, options.get(key), "command line");
@@ -53,7 +86,12 @@ public class CliSettings implements GeminiSettings {
                 put(key, env.get(envVar), "environment variable " + envVar);
             }
         }
-        if (!values.containsKey(P_AUTH_TYPE)) {
+        if (values.containsKey(P_PROVIDER)) {
+            values.put(P_PROVIDER, provider);
+        } else {
+            put(P_PROVIDER, DEFAULT_PROVIDER, "default");
+        }
+        if (!values.containsKey(P_AUTH_TYPE) && provider.equals(PROVIDER_GEMINI)) {
             // Same default as the Eclipse plugin; an API key in the environment alone does not switch to AI Studio
             put(P_AUTH_TYPE, DEFAULT_AUTH_TYPE, "default");
         }
@@ -77,15 +115,15 @@ public class CliSettings implements GeminiSettings {
     @Override
     public String configurationHint() {
         return configFile + ", the command-line options or the environment (GEMINI_API_KEY, GOOGLE_APPLICATION_CREDENTIALS, " +
-            "GOOGLE_CLOUD_PROJECT) (run 'osgi-ai-migrator config' to see the settings in effect)";
+            "GOOGLE_CLOUD_PROJECT, ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENAI_BASE_URL) (run 'osgi-ai-migrator config' to see the settings in effect)";
     }
 
-    /** The settings in effect and where each comes from, with the API key masked. */
+    /** The settings in effect and where each comes from, with the API keys masked. */
     public String describe() {
         StringBuilder sb = new StringBuilder();
         sb.append("Config file: ").append(configFile).append(Files.isRegularFile(configFile) ? "" : " (not found)").append("\n");
         for (Map.Entry<String, String> e : values.entrySet()) {
-            String value = e.getKey().equals(P_GEMINI_API_KEY) ? mask(e.getValue()) : e.getValue();
+            String value = SECRET_KEYS.contains(e.getKey()) ? mask(e.getValue()) : e.getValue();
             sb.append(String.format("  %-26s %-40s (%s)%n", e.getKey(), value, sources.get(e.getKey())));
         }
         return sb.toString();

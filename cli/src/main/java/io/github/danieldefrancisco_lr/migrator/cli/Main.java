@@ -2,8 +2,8 @@ package io.github.danieldefrancisco_lr.migrator.cli;
 
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator;
 import io.github.danieldefrancisco_lr.migrator.core.agent.AgentOrchestrator.MigrationPlan;
-import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiClient;
 import io.github.danieldefrancisco_lr.migrator.core.agent.GeminiSettings;
+import io.github.danieldefrancisco_lr.migrator.core.agent.LlmClients;
 import io.github.danieldefrancisco_lr.migrator.core.agent.LlmClient;
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.FileSystemModuleSource;
 import io.github.danieldefrancisco_lr.migrator.core.analyzer.LegacyModuleAnalyzer;
@@ -35,13 +35,16 @@ public class Main {
         "\n" +
         "Commands:\n" +
         "  analyze <module-dir>               Analyze a legacy module (Donatello) and print the report\n" +
-        "  migrate <module-dir>               Run the 4-agent pipeline with Gemini and print the plan and checks\n" +
+        "  migrate <module-dir>               Run the 4-agent pipeline with the AI provider and print the plan and checks\n" +
         "  apply <module-dir> --plan <file>   Write a plan saved with 'migrate --save-plan' into the Liferay workspace\n" +
         "                                     (a theme, as a folder or a .war, needs no plan: its client extension is built without AI)\n" +
-        "  config                             Show the Gemini settings in effect and where they come from\n" +
+        "  config                             Show the AI provider settings in effect and where they come from\n" +
         "  verify <workspace-dir>             Run Raphael's checks on the client extensions and fragments of a Liferay workspace\n" +
         "                                     (exit code 3 when there are warnings); --only <name,name> reports only those client extensions or fragment collections\n" +
         "  knowledge <dir>                    Export the playbooks, blueprints and schemas of this version\n" +
+        "  eval <module-dir>...               Migrate each module with the AI provider without writing anything and report time,\n" +
+        "                                     files and Raphael's warnings per run, to compare providers and models;\n" +
+        "                                     --runs <n> runs per module (default 1), --out <dir> saves each plan and the AI's raw answers\n" +
         "\n" +
         "Options:\n" +
         "  --folder <path>          Only analyze this folder of the module (relative to the module directory)\n" +
@@ -52,31 +55,37 @@ public class Main {
         "  --json                   Machine-readable output\n" +
         "  --config <file>          Settings file (default: ~/.osgi-ai-migrator/config.properties)\n" +
         "\n" +
-        "Gemini settings (precedence: these options, then the config file, then the environment):\n" +
-        "  --auth <GCLOUD_ADC|VERTEX_AI|AI_STUDIO>   (default GCLOUD_ADC, as in Eclipse)\n" +
-        "  --model <name>   --temperature <n>   --project <gcp-project>   --region <region>\n" +
-        "  --service-account <file.json>   --endpoint <url>\n" +
-        "  The API key is read from the config file (geminiApiKey) or GEMINI_API_KEY, never from the command line.\n" +
+        "AI provider settings (precedence: these options, then the config file, then the environment):\n" +
+        "  --provider <GEMINI|ANTHROPIC|OPENAI>      (default GEMINI; OPENAI is any OpenAI-compatible server, e.g. Ollama)\n" +
+        "  --model <name>   --endpoint <url>         (for the selected provider; for OPENAI the endpoint is the base URL,\n" +
+        "                                             e.g. http://localhost:11434/v1)\n" +
+        "  Gemini:  --auth <GCLOUD_ADC|VERTEX_AI|AI_STUDIO> (default GCLOUD_ADC)  --temperature <n>  --project <gcp-project>\n" +
+        "           --region <region>  --service-account <file.json>\n" +
+        "  Claude:  --effort <low|medium|high|xhigh|max>   (default high; default model claude-opus-5-5)\n" +
+        "  API keys are read from the config file (geminiApiKey, anthropicApiKey, openaiApiKey) or from GEMINI_API_KEY,\n" +
+        "  ANTHROPIC_API_KEY and OPENAI_API_KEY, never from the command line.\n" +
         "\n" +
         "  -h, --help   --version\n";
 
     private static final Map<String, String> SETTING_OPTIONS = Map.of(
+        "--provider", GeminiSettings.P_PROVIDER,
+        "--effort", GeminiSettings.P_ANTHROPIC_EFFORT,
         "--auth", GeminiSettings.P_AUTH_TYPE,
-        "--model", GeminiSettings.P_GEMINI_MODEL,
+        "--model", CliSettings.OPTION_MODEL,
         "--temperature", GeminiSettings.P_TEMPERATURE,
         "--project", GeminiSettings.P_VERTEX_PROJECT_ID,
         "--region", GeminiSettings.P_VERTEX_REGION,
         "--service-account", GeminiSettings.P_SERVICE_ACCOUNT_FILE,
-        "--endpoint", GeminiSettings.P_GEMINI_ENDPOINT);
+        "--endpoint", CliSettings.OPTION_ENDPOINT);
 
-    private static final List<String> VALUE_OPTIONS = List.of("--folder", "--save-plan", "--workspace", "--config", "--plan", "--only");
+    private static final List<String> VALUE_OPTIONS = List.of("--folder", "--save-plan", "--workspace", "--config", "--plan", "--only", "--runs", "--out");
 
     /** Exit code of 'verify' when Raphael has warnings, so agents and scripts can loop until it is clean. */
     static final int EXIT_WARNINGS = 3;
     private static final List<String> FLAGS = List.of("--no-backend", "--apply", "--json");
 
     public static void main(String[] args) {
-        System.exit(run(args, System.out, System.err, System.getenv(), GeminiClient::new));
+        System.exit(run(args, System.out, System.err, System.getenv(), LlmClients::create));
     }
 
     static int run(String[] args, PrintStream out, PrintStream err, Map<String, String> env,
@@ -129,6 +138,18 @@ public class Main {
                 }
                 Path dir = Path.of(positional.get(1)).toAbsolutePath();
                 return command.equals("verify") ? verify(dir, options.get("--only"), json, out, err) : knowledge(dir, json, out);
+            }
+            if (command.equals("eval")) {
+                if (positional.size() < 2) {
+                    return usageError(err, "Missing <module-dir>");
+                }
+                int runs = options.containsKey("--runs") ? Integer.parseInt(options.get("--runs")) : 1;
+                if (runs < 1) {
+                    return usageError(err, "--runs must be at least 1");
+                }
+                return Evaluate.run(positional.subList(1, positional.size()), runs, !options.containsKey("--no-backend"),
+                    options.containsKey("--out") ? Path.of(options.get("--out")) : null, json, settings,
+                    llmFactory.apply(settings), out, err, System::currentTimeMillis);
             }
             if (!List.of("analyze", "migrate", "apply").contains(command)) {
                 return usageError(err, "Unknown command " + command);
@@ -193,8 +214,8 @@ public class Main {
                     ThemeGenerator.generate(analysis.theme, plan);
                 }
             } else {
-                err.println("Leonardo and Michelangelo: generating with Gemini (" + settings.get(GeminiSettings.P_AUTH_TYPE) +
-                    "), this can take a minute ...");
+                err.println("Leonardo and Michelangelo: generating with " + LlmClients.describe(settings) +
+                    ", this can take a few minutes ...");
                 AgentOrchestrator orchestrator = new AgentOrchestrator(llmFactory.apply(settings));
                 plan = orchestrator.planAndGenerate(analysis, moduleDir.getParent(), !options.containsKey("--no-backend"));
                 if (options.containsKey("--save-plan")) {

@@ -17,13 +17,10 @@ public class GeminiClient implements LlmClient {
     private static final Pattern MAX_TOKENS = Pattern.compile("\"finishReason\"\\s*:\\s*\"MAX_TOKENS\"");
 
     private final GeminiSettings settings;
-    private final HttpClient httpClient;
+    private HttpClient httpClient;
 
     public GeminiClient(GeminiSettings settings) {
         this.settings = settings;
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(30))
-            .build();
     }
 
     @Override
@@ -96,7 +93,7 @@ public class GeminiClient implements LlmClient {
             }
 
             GoogleAuthHelper.ServiceAccountInfo saInfo = GoogleAuthHelper.parseServiceAccount(saFile);
-            String accessToken = GoogleAuthHelper.getServiceAccountAccessToken(saFile, httpClient);
+            String accessToken = GoogleAuthHelper.getServiceAccountAccessToken(saFile, http());
 
             String region = settings.get(GeminiSettings.P_VERTEX_REGION);
             if (region == null || region.trim().isEmpty()) {
@@ -132,7 +129,7 @@ public class GeminiClient implements LlmClient {
             requestBuilder.header("x-goog-api-key", apiKey);
         }
 
-        HttpResponse<String> response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        HttpResponse<String> response = http().send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
         if (response.statusCode() != 200) {
             throw new RuntimeException("Gemini Gateway Error (HTTP " + response.statusCode() + "): " + response.body());
@@ -215,5 +212,13 @@ public class GeminiClient implements LlmClient {
             sb.append(c);
         }
         return sb.toString();
+    }
+
+    /** Created on first use, so creating a client (when settings change or in tests) opens no connection. */
+    private synchronized HttpClient http() {
+        if (httpClient == null) {
+            httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
+        }
+        return httpClient;
     }
 }

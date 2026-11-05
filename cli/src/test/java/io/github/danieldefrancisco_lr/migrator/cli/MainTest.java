@@ -180,6 +180,49 @@ public class MainTest {
         assertTrue(Files.exists(dir.resolve("blueprints/notification-and-workflow-migration.md")));
     }
 
+    @Test
+    public void providerOptionsGoToTheSelectedProvider() throws Exception {
+        Path config = tmp.resolve("config.properties");
+        Files.writeString(config, "llmProvider=anthropic\nanthropicEffort=medium\n");
+        CliSettings claude = new CliSettings(Map.of(CliSettings.OPTION_MODEL, "claude-sonnet-5-5"),
+            Map.of("ANTHROPIC_API_KEY", "sk-ant-secret-9999", "OPENAI_API_KEY", "sk-openai-1111"), config);
+        assertEquals(GeminiSettings.PROVIDER_ANTHROPIC, claude.get(GeminiSettings.P_PROVIDER));
+        assertEquals("claude-sonnet-5-5", claude.get(GeminiSettings.P_ANTHROPIC_MODEL), "--model applies to the provider in effect");
+        assertEquals(null, claude.get(GeminiSettings.P_GEMINI_MODEL));
+        assertEquals("medium", claude.get(GeminiSettings.P_ANTHROPIC_EFFORT));
+        assertEquals("sk-ant-secret-9999", claude.getSecret(GeminiSettings.P_ANTHROPIC_API_KEY));
+        String described = claude.describe();
+        assertTrue(described.contains("****9999") && described.contains("****1111"), described);
+        assertTrue(!described.contains("sk-ant-secret") && !described.contains("sk-openai"), "every API key must be masked");
+        assertTrue(!described.contains(GeminiSettings.P_AUTH_TYPE), "no Gemini default when another provider is selected");
+
+        CliSettings local = new CliSettings(Map.of(GeminiSettings.P_PROVIDER, "openai", CliSettings.OPTION_MODEL, "qwen3-coder",
+            CliSettings.OPTION_ENDPOINT, "http://localhost:11434/v1"), Map.of(), config);
+        assertEquals(GeminiSettings.PROVIDER_OPENAI, local.get(GeminiSettings.P_PROVIDER), "the command line wins over the file");
+        assertEquals("qwen3-coder", local.get(GeminiSettings.P_OPENAI_MODEL));
+        assertEquals("http://localhost:11434/v1", local.get(GeminiSettings.P_OPENAI_BASE_URL));
+
+        assertEquals(1, run("migrate", module.toString(), "--provider", "copilot"));
+        assertTrue(err.toString().contains("Unknown AI provider 'COPILOT'"), err.toString());
+    }
+
+    @Test
+    public void evalReportsWarningsPerRunWithoutWriting() throws Exception {
+        Set<String> before = Dumps.listFiles(workspace);
+        assertEquals(0, run("eval", module.toString(), "--runs", "2", "--json"), err.toString());
+        assertEquals(before, Dumps.listFiles(workspace), "eval must not write into the workspace");
+        String json = stdout();
+        assertTrue(json.startsWith("{\"provider\":\"Gemini gemini-2.5-flash (GCLOUD_ADC)\",\"runs\":[{\"module\":\"library-web\",\"run\":1,"), json);
+        assertTrue(json.contains("\"run\":2,"), json);
+        assertTrue(json.contains("\"warnings\":"), json);
+
+        Path outDir = tmp.resolve("eval-out");
+        assertEquals(0, run("eval", module.toString(), "--out", outDir.toString()), err.toString());
+        assertTrue(Files.isRegularFile(outDir.resolve("library-web-run1.plan.json")));
+        String first = Files.readString(outDir.resolve("library-web-run1-response-1.txt"), StandardCharsets.UTF_8);
+        assertTrue(first.startsWith("=== AGENT: "), first);
+    }
+
     private int run(String... args) {
         out.reset();
         err.reset();

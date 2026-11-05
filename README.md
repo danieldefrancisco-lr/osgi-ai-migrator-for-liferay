@@ -121,7 +121,7 @@ java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --save-plan pla
 java -jar osgi-ai-migrator-cli.jar apply path/to/legacy-module --plan plan.txt  # write a reviewed plan
 ```
 
-Two commands work without Gemini, for client extensions written or edited by hand or by a coding agent:
+Two commands work without any AI provider, for client extensions written or edited by hand or by a coding agent:
 
 ```
 java -jar osgi-ai-migrator-cli.jar verify path/to/liferay-workspace         # Raphael's checks; exit code 3 if there are warnings
@@ -152,6 +152,37 @@ geminiModel=gemini-2.5-flash
 As in Eclipse, the default authentication is gcloud ADC (`gcloud auth login`); use
 `geminiAuthType=AI_STUDIO` (or `--auth AI_STUDIO`) for an API key. `java -jar osgi-ai-migrator-cli.jar config`
 shows the settings in effect and where each one comes from.
+
+### Other AI providers: Claude and OpenAI-compatible servers
+
+Gemini is the default. Choose another provider with `--provider` or `llmProvider` in the config file;
+`--model` and `--endpoint` then apply to that provider:
+
+| Provider | `llmProvider` | Settings (config file) | Environment |
+|---|---|---|---|
+| Google Gemini | `GEMINI` | see above | `GEMINI_API_KEY`, `GOOGLE_*` |
+| Anthropic Claude | `ANTHROPIC` | `anthropicApiKey`, `anthropicModel` (default `claude-opus-5-5`), `anthropicEffort` (`low`, `medium`, `high` (default), `xhigh`, `max`), `anthropicEndpoint` | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| Any OpenAI-compatible server (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio...) | `OPENAI` | `openaiModel` (required), `openaiBaseUrl` (default `https://api.openai.com/v1`), `openaiApiKey` (optional for local servers) | `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+
+```
+java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --provider anthropic
+java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --provider openai --model gpt-5
+java -jar osgi-ai-migrator-cli.jar migrate path/to/legacy-module --provider openai --model qwen3-coder --endpoint http://localhost:11434/v1
+```
+
+API keys are never read from the command line, and `config` shows them masked. Claude answers are streamed, and
+for the models that support it the request opts into Anthropic's server-side fallbacks (`fallbacks: "default"`):
+if a safety classifier declines a request, it is retried on the recommended fallback model instead of failing.
+
+To compare providers, models or effort levels on your own modules, `eval` migrates them without writing anything
+and reports, per run, the time, the generated files and Raphael's warnings:
+
+```
+java -jar osgi-ai-migrator-cli.jar eval path/to/module-a path/to/module-b --runs 3 --provider anthropic
+java -jar osgi-ai-migrator-cli.jar eval path/to/module-a path/to/module-b --runs 3 --provider gemini --out plans/
+```
+
+Each run is a real call to the provider and is billed by it.
 
 ## Agent skill (Claude Code, Gemini CLI, Codex and other coding agents)
 
